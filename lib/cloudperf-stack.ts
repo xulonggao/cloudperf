@@ -17,7 +17,7 @@ export class CloudperfStack extends cdk.Stack {
 
     // 创建 VPC
     const vpc = new ec2.Vpc(this, stackPrefix + 'vpc', {
-      cidr: '10.0.0.0/16',
+      ipAddresses: ec2.IpAddresses.cidr('10.0.0.0/16'),
       maxAzs: 2,
       natGateways: 1
     });
