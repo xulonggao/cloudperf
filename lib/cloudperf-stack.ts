@@ -80,14 +80,14 @@ export class CloudperfStack extends cdk.Stack {
       license: 'Apache-2.0',
       description: 'A layer for fping',
     });
-    // pythonlib 包括 redis 连接库等
+    // pythonlib 包括 redis mysql 连接库等
     const pythonLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-pythonlib', {
       code: lambda.Code.fromAsset('src/layer/pythonlib-layer.zip'),
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
       license: 'Apache-2.0',
       description: 'A layer for pythonlib',
     });
-    // data 层包括 redis mysql 等
+    // data 层包括重用的数据访问函数等
     const dataLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-data', {
       code: lambda.Code.fromAsset('src/layer/datalayer'),
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
@@ -122,7 +122,7 @@ export class CloudperfStack extends cdk.Stack {
       securityGroups: [sg],
     });
 
-    // 管理查询界面
+    // 提供系统的维护操作，包括初始化数据库等
     const adminLambda = new lambda.Function(this, stackPrefix + 'admin', {
       runtime: lambda.Runtime.PYTHON_3_12,
       code: lambda.Code.fromAsset('src/admin'),

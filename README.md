@@ -30,6 +30,7 @@ npm install aws-cdk-lib@latest
 * 创建数据表
 
 ```
+
 ```
 
 ## 扩展使用
@@ -53,9 +54,29 @@ npm install aws-cdk-lib@latest
 │   └── lambda_function.py
 └── layer                       # lambda 函数层
     ├── datalayer               # 数据层，给多个lambda使用
-    │   ├── data_layer.py
-    │   └── settings.py
-    ├── build-layer.sh          # 创建各个层并打包
+    │   ├── data_layer.py       # 数据库操作函数
+    │   └── settings.py         # 数据库配置
+    ├── build-layer.sh          # 创建各个层并打包，创建fping-layer和pythonlib-layer
     ├── fping-layer.zip         # fping 程序层
     └── pythonlib-layer.zip     # python 类库层
+```
+
+## web 前端构建
+
+```txt
+cline:
+请在src/web 目录下，生成一个静态网站，网站使用react框架mui.com上的material-ui制作，包括左边的导航栏，右边dashboard中，上方有4个主要的数值面板，下方是各种图表展示
+
+cd src/web && npm create vite@latest . -- --template react && npm install
+
+cd src/web && npm install @mui/material @emotion/react @emotion/styled @mui/icons-material react-router-dom recharts
+
+使用 npm run build 生成优化后的生产版本
+构建后的文件位于 src/web/dist 目录
+已配置代码分割和资源优化
+部署选项（详见 src/web/DEPLOY.md）：
+
+静态 Web 服务器部署（Apache/Nginx）
+AWS S3 + CloudFront 云部署
+Docker 容器化部署
 ```
