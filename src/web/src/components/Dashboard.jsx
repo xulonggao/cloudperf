@@ -1,29 +1,13 @@
-import { Box, Container, Grid, Paper, Typography } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, Container, Grid, Paper, Typography, CircularProgress, Alert } from '@mui/material';
 import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import SpeedIcon from '@mui/icons-material/Speed';
 import RouterIcon from '@mui/icons-material/Router';
 import PublicIcon from '@mui/icons-material/Public';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { fetchDashboardStats, fetchPerformanceData, fetchRegionalData } from '../services/api';
 
-// Sample data for charts
-const performanceData = [
-    { name: 'Jan', latency: 400, throughput: 240, amt: 240 },
-    { name: 'Feb', latency: 300, throughput: 139, amt: 221 },
-    { name: 'Mar', latency: 200, throughput: 980, amt: 229 },
-    { name: 'Apr', latency: 278, throughput: 390, amt: 200 },
-    { name: 'May', latency: 189, throughput: 480, amt: 218 },
-    { name: 'Jun', latency: 239, throughput: 380, amt: 250 },
-];
-
-const regionData = [
-    { name: 'NA', value: 4000 },
-    { name: 'EU', value: 3000 },
-    { name: 'Asia', value: 2000 },
-    { name: 'SA', value: 1000 },
-    { name: 'Africa', value: 500 },
-];
-
-function StatsCard({ title, value, icon: Icon, color }) {
+function StatsCard({ title, value, icon: Icon, color, isLoading, error }) {
     return (
         <Paper
             sx={{
@@ -41,14 +25,101 @@ function StatsCard({ title, value, icon: Icon, color }) {
                 </Typography>
                 <Icon />
             </Box>
-            <Typography component="p" variant="h4">
-                {value}
+            {isLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
+                    <CircularProgress color="inherit" size={24} />
+                </Box>
+            ) : error ? (
+                <Typography color="error" component="p">
+                    Error loading data
+                </Typography>
+            ) : (
+                <Typography component="p" variant="h4">
+                    {value}
+                </Typography>
+            )}
+        </Paper>
+    );
+}
+
+function ChartContainer({ title, children, isLoading, error }) {
+    return (
+        <Paper
+            sx={{
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                height: 400,
+            }}
+        >
+            <Typography component="h2" variant="h6" color="primary" gutterBottom>
+                {title}
             </Typography>
+            {isLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
+                    <CircularProgress />
+                </Box>
+            ) : error ? (
+                <Alert severity="error">Error loading chart data</Alert>
+            ) : (
+                children
+            )}
         </Paper>
     );
 }
 
 export default function Dashboard() {
+    const [stats, setStats] = useState(null);
+    const [performanceData, setPerformanceData] = useState([]);
+    const [regionalData, setRegionalData] = useState([]);
+    const [loading, setLoading] = useState({
+        stats: true,
+        performance: true,
+        regional: true
+    });
+    const [error, setError] = useState({
+        stats: null,
+        performance: null,
+        regional: null
+    });
+
+    const fetchData = async () => {
+        try {
+            const statsData = await fetchDashboardStats();
+            setStats(statsData);
+            setLoading(prev => ({ ...prev, stats: false }));
+        } catch (err) {
+            setError(prev => ({ ...prev, stats: err.message }));
+            setLoading(prev => ({ ...prev, stats: false }));
+        }
+
+        try {
+            const perfData = await fetchPerformanceData();
+            setPerformanceData(perfData);
+            setLoading(prev => ({ ...prev, performance: false }));
+        } catch (err) {
+            setError(prev => ({ ...prev, performance: err.message }));
+            setLoading(prev => ({ ...prev, performance: false }));
+        }
+
+        try {
+            const regData = await fetchRegionalData();
+            setRegionalData(regData);
+            setLoading(prev => ({ ...prev, regional: false }));
+        } catch (err) {
+            setError(prev => ({ ...prev, regional: err.message }));
+            setLoading(prev => ({ ...prev, regional: false }));
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+        // Set up polling interval
+        const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
             <Grid container spacing={3}>
@@ -56,49 +127,51 @@ export default function Dashboard() {
                 <Grid item xs={12} sm={6} md={3}>
                     <StatsCard
                         title="Active Nodes"
-                        value="234"
+                        value={stats?.activeNodes}
                         icon={RouterIcon}
                         color="#1976d2"
+                        isLoading={loading.stats}
+                        error={error.stats}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                     <StatsCard
                         title="Avg Latency"
-                        value="45ms"
+                        value={stats?.avgLatency}
                         icon={SpeedIcon}
                         color="#2196f3"
+                        isLoading={loading.stats}
+                        error={error.stats}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                     <StatsCard
                         title="Network Status"
-                        value="98.5%"
+                        value={stats?.networkStatus}
                         icon={NetworkCheckIcon}
                         color="#03a9f4"
+                        isLoading={loading.stats}
+                        error={error.stats}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                     <StatsCard
                         title="Regions"
-                        value="12"
+                        value={stats?.regions}
                         icon={PublicIcon}
                         color="#00bcd4"
+                        isLoading={loading.stats}
+                        error={error.stats}
                     />
                 </Grid>
 
                 {/* Performance Chart */}
                 <Grid item xs={12} md={8}>
-                    <Paper
-                        sx={{
-                            p: 2,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            height: 400,
-                        }}
+                    <ChartContainer
+                        title="Network Performance"
+                        isLoading={loading.performance}
+                        error={error.performance}
                     >
-                        <Typography component="h2" variant="h6" color="primary" gutterBottom>
-                            Network Performance
-                        </Typography>
                         <ResponsiveContainer>
                             <LineChart
                                 data={performanceData}
@@ -123,25 +196,19 @@ export default function Dashboard() {
                                 <Line type="monotone" dataKey="throughput" stroke="#82ca9d" />
                             </LineChart>
                         </ResponsiveContainer>
-                    </Paper>
+                    </ChartContainer>
                 </Grid>
 
                 {/* Regional Distribution */}
                 <Grid item xs={12} md={4}>
-                    <Paper
-                        sx={{
-                            p: 2,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            height: 400,
-                        }}
+                    <ChartContainer
+                        title="Regional Distribution"
+                        isLoading={loading.regional}
+                        error={error.regional}
                     >
-                        <Typography component="h2" variant="h6" color="primary" gutterBottom>
-                            Regional Distribution
-                        </Typography>
                         <ResponsiveContainer>
                             <BarChart
-                                data={regionData}
+                                data={regionalData}
                                 margin={{
                                     top: 16,
                                     right: 16,
@@ -156,7 +223,7 @@ export default function Dashboard() {
                                 <Bar dataKey="value" fill="#8884d8" />
                             </BarChart>
                         </ResponsiveContainer>
-                    </Paper>
+                    </ChartContainer>
                 </Grid>
             </Grid>
         </Container>

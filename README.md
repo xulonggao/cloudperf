@@ -71,6 +71,16 @@ cd src/web && npm create vite@latest . -- --template react && npm install
 
 cd src/web && npm install @mui/material @emotion/react @emotion/styled @mui/icons-material react-router-dom recharts
 
+cd src/web && npm install axios
+
+cd src/web && npm install miragejs && npm run dev
+
+仪表板现在可以通过以下命令运行：
+
+开发环境：cd src/web && npm run dev
+生产环境：cd src/web && npm run build
+要切换到实际API，只需在生产环境中配置 VITE_API_URL 环境变量指向实际的API端点。
+
 使用 npm run build 生成优化后的生产版本
 构建后的文件位于 src/web/dist 目录
 已配置代码分割和资源优化
