@@ -20,6 +20,22 @@ def mysql_select(sql:str, obj = None):
     conn.close()
     return row_all
 
+def mysql_runsql(sql:str):
+    ret = True
+    conn = pymysql.connect(host=settings.DB_READ_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql, obj)
+        conn.commit()
+    except Exception as e:
+        print(f"Error executing SQL script: {e}")
+        conn.rollback()
+        ret = False
+    finally:
+        cursor.close()
+        conn.close()
+    return ret
+
 def mysql_select_onevalue(sql:str, obj = None, default = 0):
     row = mysql_select(sql, obj)
     if row == None or len(row) == 0:

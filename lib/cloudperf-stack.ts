@@ -1,15 +1,17 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-//import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 
 const stackPrefix = 'cloudperf-';
+const cidr = '10.0.0.0/16';
 
 export class CloudperfStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -17,7 +19,7 @@ export class CloudperfStack extends cdk.Stack {
 
     // 创建 VPC
     const vpc = new ec2.Vpc(this, stackPrefix + 'vpc', {
-      ipAddresses: ec2.IpAddresses.cidr('10.0.0.0/16'),
+      ipAddresses: ec2.IpAddresses.cidr(cidr),
       maxAzs: 2,
       natGateways: 1
     });
@@ -29,11 +31,15 @@ export class CloudperfStack extends cdk.Stack {
       description: 'Allow access to Internal Resource',
       allowAllOutbound: true
     });
-    // 添加自引用规则
     sg.addIngressRule(
-      ec2.Peer.securityGroupId(sg.securityGroupId),
-      ec2.Port.allTraffic(),
-      'Allow traffic from self'
+      ec2.Peer.ipv4(cidr),
+      ec2.Port.tcp(3306),
+      'Allow MySQL access from Internal'
+    );
+    sg.addIngressRule(
+      ec2.Peer.ipv4(cidr),
+      ec2.Port.tcp(6379),
+      'Allow ElastiCache access from Internal'
     );
 
     // 创建 Aurora Serverless 集群
@@ -60,6 +66,11 @@ export class CloudperfStack extends cdk.Stack {
       securityGroupIds: [sg.securityGroupId],
     });
 
+    const fpingQueue = new sqs.Queue(this, stackPrefix + 'fping', {
+      queueName: stackPrefix + 'fping',
+      visibilityTimeout: cdk.Duration.minutes(15 * 4),
+    });
+
     // 创建 Lambda 函数
     const fpingLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-fping', {
       code: lambda.Code.fromAsset('src/layer/fping-layer.zip'),
@@ -73,32 +84,72 @@ export class CloudperfStack extends cdk.Stack {
       license: 'Apache-2.0',
       description: 'A layer for pythonlib',
     });
+    const dataLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-data', {
+      code: lambda.Code.fromAsset('src/layer/datalayer'),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
+      license: 'Apache-2.0',
+      description: 'A layer for data',
+    });
+
+    const environments = {
+      DB_WRITE_HOST: db.clusterEndpoint.hostname,
+      DB_READ_HOST: db.clusterEndpoint.hostname, // db.clusterReadEndpoint.hostname,
+      DB_PORT: String(db.clusterEndpoint.port),
+      DB_SECRET: db.secret?.secretArn || '',
+      CACHE_HOST: cacheCluster.attrEndpointAddress,
+      CACHE_PORT: cacheCluster.attrEndpointPort,
+      FPING_QUEUE: fpingQueue.queueUrl,
+    };
 
     const lambdaRoleApi = new iam.Role(this, stackPrefix + 'role-api', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
-
-    const lambdaFunction = new lambda.Function(this, stackPrefix + 'api', {
+    const apiLambda = new lambda.Function(this, stackPrefix + 'api', {
       runtime: lambda.Runtime.PYTHON_3_12,
-      code: lambda.Code.fromAsset('src/cloudperf-api'),
+      code: lambda.Code.fromAsset('src/api'),
+      handler: 'lambda_function.lambda_handler',
+      vpc: vpc,
+      vpcSubnets: { subnets: vpc.privateSubnets },
+      role: lambdaRoleApi,
+      timeout: cdk.Duration.minutes(1),
+      layers: [pythonLayer, dataLayer],
+      environment: environments,
+      securityGroups: [sg],
+    });
+
+    const adminLambda = new lambda.Function(this, stackPrefix + 'admin', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      code: lambda.Code.fromAsset('src/admin'),
       handler: 'lambda_function.lambda_handler',
       vpc: vpc,
       vpcSubnets: { subnets: vpc.privateSubnets },
       role: lambdaRoleApi,
       timeout: cdk.Duration.minutes(15),
-      layers: [fpingLayer, pythonLayer],
-      environment: {
-        DB_WRITE_HOST: db.clusterEndpoint.hostname,
-        DB_READ_HOST: db.clusterEndpoint.hostname, // db.clusterReadEndpoint.hostname,
-        DB_PORT: String(db.clusterEndpoint.port),
-        DB_SECRET: db.secret?.secretArn || '',
-        CACHE_HOST: cacheCluster.attrEndpointAddress,
-        CACHE_PORT: cacheCluster.attrEndpointPort,
-      },
+      layers: [pythonLayer, dataLayer],
+      environment: environments,
       securityGroups: [sg],
     });
+
+    const lambdaRoleQueue = new iam.Role(this, stackPrefix + 'role-queue', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    });
+    const fpingQueueLambda = new lambda.Function(this, stackPrefix + 'fping-queue', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      code: lambda.Code.fromAsset('src/fping-queue'),
+      handler: 'lambda_function.lambda_handler',
+      role: lambdaRoleQueue,
+      timeout: cdk.Duration.minutes(15),
+      layers: [fpingLayer],
+      environment: environments,
+    });
+    const eventSource = new lambdaEventSources.SqsEventSource(fpingQueue, {
+      batchSize: 2,
+      maxBatchingWindow: cdk.Duration.seconds(300),
+      maxConcurrency: 10
+    });
+    fpingQueueLambda.addEventSource(eventSource);
+
     lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
-    lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
     lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
     const secretsManagerPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -109,8 +160,19 @@ export class CloudperfStack extends cdk.Stack {
       resources: [db.secret?.secretArn || '']
     });
     lambdaRoleApi.attachInlinePolicy(
-      new iam.Policy(this, 'SecretsManagerAccess', {
+      new iam.Policy(this, stackPrefix + 'policy-SecretsManager', {
         statements: [secretsManagerPolicy]
+      })
+    );
+    lambdaRoleQueue.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+    const sqsPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes'],
+      resources: [fpingQueue.queueArn],
+    });
+    lambdaRoleQueue.attachInlinePolicy(
+      new iam.Policy(this, stackPrefix + 'policy-Sqs', {
+        statements: [sqsPolicy]
       })
     );
 
@@ -127,7 +189,7 @@ export class CloudperfStack extends cdk.Stack {
     });
 
     listener.addTargets(stackPrefix + 'api-target', {
-      targets: [new targets.LambdaTarget(lambdaFunction)],
+      targets: [new targets.LambdaTarget(apiLambda)],
       healthCheck: {
         enabled: true,
         path: '/'
@@ -159,5 +221,11 @@ export class CloudperfStack extends cdk.Stack {
       value: sg.securityGroupId,
       description: 'Internal Security Group ID'
     });
+
+    new cdk.CfnOutput(this, 'fpingQueue', {
+      value: fpingQueue.queueArn,
+      description: 'Internal Security Group ID'
+    });
+
   }
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VERSION="python3.12"
-PYTHON_LIB="PyMysql"
+PYTHON_LIB="PyMysql redis"
 API_URL="http://cloudperf-api/job"
 
 TMP_PATH=$(mktemp -d)
