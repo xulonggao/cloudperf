@@ -66,24 +66,28 @@ export class CloudperfStack extends cdk.Stack {
       securityGroupIds: [sg.securityGroupId],
     });
 
+    // 创建 fping 任务对了
     const fpingQueue = new sqs.Queue(this, stackPrefix + 'fping', {
       queueName: stackPrefix + 'fping',
       visibilityTimeout: cdk.Duration.minutes(15 * 4),
     });
 
-    // 创建 Lambda 函数
+    // 创建 Lambda 工具层
+    // fping 带有可执行的fping命令
     const fpingLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-fping', {
       code: lambda.Code.fromAsset('src/layer/fping-layer.zip'),
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
       license: 'Apache-2.0',
       description: 'A layer for fping',
     });
+    // pythonlib 包括 redis 连接库等
     const pythonLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-pythonlib', {
       code: lambda.Code.fromAsset('src/layer/pythonlib-layer.zip'),
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
       license: 'Apache-2.0',
       description: 'A layer for pythonlib',
     });
+    // data 层包括 redis mysql 等
     const dataLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-data', {
       code: lambda.Code.fromAsset('src/layer/datalayer'),
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
@@ -101,6 +105,7 @@ export class CloudperfStack extends cdk.Stack {
       FPING_QUEUE: fpingQueue.queueUrl,
     };
 
+    // 对外 api 接口函数
     const lambdaRoleApi = new iam.Role(this, stackPrefix + 'role-api', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
@@ -117,6 +122,7 @@ export class CloudperfStack extends cdk.Stack {
       securityGroups: [sg],
     });
 
+    // 管理查询界面
     const adminLambda = new lambda.Function(this, stackPrefix + 'admin', {
       runtime: lambda.Runtime.PYTHON_3_12,
       code: lambda.Code.fromAsset('src/admin'),
@@ -130,6 +136,7 @@ export class CloudperfStack extends cdk.Stack {
       securityGroups: [sg],
     });
 
+    // fping 任务队列
     const lambdaRoleQueue = new iam.Role(this, stackPrefix + 'role-queue', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
@@ -176,7 +183,7 @@ export class CloudperfStack extends cdk.Stack {
       })
     );
 
-    // 创建 ALB
+    // 对外 api 服务
     const alb = new elbv2.ApplicationLoadBalancer(this, stackPrefix + 'api-alb', {
       vpc,
       internetFacing: true,
@@ -224,7 +231,7 @@ export class CloudperfStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'fpingQueue', {
       value: fpingQueue.queueArn,
-      description: 'Internal Security Group ID'
+      description: 'fping job queue'
     });
 
   }
