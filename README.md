@@ -89,4 +89,8 @@ cd src/web && npm install miragejs && npm run dev
 静态 Web 服务器部署（Apache/Nginx）
 AWS S3 + CloudFront 云部署
 Docker 容器化部署
+
+在 src/web 的网页项目中，在页面右上方的banner条中增加三个下拉框，分别是国家，城市，运营商，可以进行字符串输入快速过滤选择，填充数据分别由三个后端接口返回，增加后端接口 /api/country /api/city /api/asn
+
+在 src/web 的网页项目中，在页面主图的下方增加一个世界地图窗口，根据选择的城市，在图中绘画最多10条世界各地到该城市的延时情况，数据由后端接口/api/latency返回，地图组件使用OpenStreetMap
 ```

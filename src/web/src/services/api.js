@@ -38,6 +38,16 @@ export const fetchRegionalData = async () => {
     }
 };
 
+export const fetchLatencyData = async (city) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/latency?city=${encodeURIComponent(city)}`);
+        return handleResponse(response);
+    } catch (error) {
+        console.error('Error fetching latency data:', error);
+        throw error;
+    }
+};
+
 export const fetchCountries = async (query = '') => {
     try {
         const response = await fetch(`${API_BASE_URL}/country?q=${encodeURIComponent(query)}`);

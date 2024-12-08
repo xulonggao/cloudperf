@@ -1,42 +1,48 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* Add required Leaflet CSS */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* Custom marker styling */
+.custom-marker {
+  background: transparent;
+  border: none;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Dark theme for map tiles */
+.dark-map .leaflet-tile {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* Popup styling */
+.leaflet-popup-content-wrapper {
+  background: rgba(40, 44, 52, 0.9);
+  color: white;
+  border-radius: 4px;
 }
 
-.card {
-  padding: 2em;
+.leaflet-popup-tip {
+  background: rgba(40, 44, 52, 0.9);
 }
 
-.read-the-docs {
-  color: #888;
+/* Control styling */
+.leaflet-control-container .leaflet-control {
+  background: rgba(40, 44, 52, 0.9);
+  color: white;
+  border: none;
+}
+
+.leaflet-control-container .leaflet-control a {
+  color: white;
+}
+
+/* Attribution styling */
+.leaflet-control-attribution {
+  background: rgba(40, 44, 52, 0.7) !important;
+  color: #888 !important;
+}
+
+.leaflet-control-attribution a {
+  color: #aaa !important;
 }

@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Box, Container, Grid, Paper, Typography, CircularProgress, Alert } from '@mui/material';
 import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import SpeedIcon from '@mui/icons-material/Speed';
 import RouterIcon from '@mui/icons-material/Router';
 import PublicIcon from '@mui/icons-material/Public';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { fetchDashboardStats, fetchPerformanceData, fetchRegionalData } from '../services/api';
+import { fetchDashboardStats, fetchPerformanceData, fetchRegionalData, fetchLatencyData } from '../services/api';
+import WorldMap from './WorldMap';
 
 function StatsCard({ title, value, icon: Icon, color, isLoading, error }) {
     return (
@@ -72,45 +73,69 @@ export default function Dashboard() {
     const [stats, setStats] = useState(null);
     const [performanceData, setPerformanceData] = useState([]);
     const [regionalData, setRegionalData] = useState([]);
+    const [latencyData, setLatencyData] = useState([]);
+    const [selectedCity, setSelectedCity] = useState('New York'); // Default city
     const [loading, setLoading] = useState({
         stats: true,
         performance: true,
-        regional: true
+        regional: true,
+        latency: true
     });
     const [error, setError] = useState({
         stats: null,
         performance: null,
-        regional: null
+        regional: null,
+        latency: null
     });
 
-    const fetchData = async () => {
+    const fetchLatency = useCallback(async () => {
         try {
+            setLoading(prev => ({ ...prev, latency: true }));
+            setError(prev => ({ ...prev, latency: null }));
+            const data = await fetchLatencyData(selectedCity);
+            setLatencyData(data || []);
+        } catch (err) {
+            console.error('Error fetching latency data:', err);
+            setError(prev => ({ ...prev, latency: err.message }));
+        } finally {
+            setLoading(prev => ({ ...prev, latency: false }));
+        }
+    }, [selectedCity]);
+
+    const fetchData = useCallback(async () => {
+        try {
+            setLoading(prev => ({ ...prev, stats: true }));
             const statsData = await fetchDashboardStats();
             setStats(statsData);
-            setLoading(prev => ({ ...prev, stats: false }));
         } catch (err) {
             setError(prev => ({ ...prev, stats: err.message }));
+        } finally {
             setLoading(prev => ({ ...prev, stats: false }));
         }
 
         try {
+            setLoading(prev => ({ ...prev, performance: true }));
             const perfData = await fetchPerformanceData();
             setPerformanceData(perfData);
-            setLoading(prev => ({ ...prev, performance: false }));
         } catch (err) {
             setError(prev => ({ ...prev, performance: err.message }));
+        } finally {
             setLoading(prev => ({ ...prev, performance: false }));
         }
 
         try {
+            setLoading(prev => ({ ...prev, regional: true }));
             const regData = await fetchRegionalData();
             setRegionalData(regData);
-            setLoading(prev => ({ ...prev, regional: false }));
         } catch (err) {
             setError(prev => ({ ...prev, regional: err.message }));
+        } finally {
             setLoading(prev => ({ ...prev, regional: false }));
         }
-    };
+
+        // Fetch latency data
+        await fetchLatency();
+    }, [fetchLatency]);
 
     useEffect(() => {
         fetchData();
@@ -118,7 +143,12 @@ export default function Dashboard() {
         const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
 
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchData]);
+
+    // Fetch new latency data when selected city changes
+    useEffect(() => {
+        fetchLatency();
+    }, [selectedCity, fetchLatency]);
 
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -224,6 +254,21 @@ export default function Dashboard() {
                             </BarChart>
                         </ResponsiveContainer>
                     </ChartContainer>
+                </Grid>
+
+                {/* World Map */}
+                <Grid item xs={12}>
+                    {loading.latency ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : error.latency ? (
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                            Error loading latency data: {error.latency}
+                        </Alert>
+                    ) : (
+                        <WorldMap data={latencyData} selectedCity={selectedCity} />
+                    )}
                 </Grid>
             </Grid>
         </Container>

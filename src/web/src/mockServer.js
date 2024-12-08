@@ -1,4 +1,4 @@
-import { createServer } from "miragejs"
+import { createServer, Response } from "miragejs"
 
 // Sample data generators
 const generateCountries = () => [
@@ -17,6 +17,20 @@ const generateAsns = () => [
     "AS4134 China Telecom", "AS9808 China Mobile",
     "AS20940 Akamai", "AS16509 Amazon", "AS15169 Google"
 ];
+
+// City coordinates for the map
+const cityCoordinates = {
+    "New York": [-74.006, 40.7128],
+    "Tokyo": [139.6917, 35.6895],
+    "London": [-0.1276, 51.5074],
+    "Paris": [2.3522, 48.8566],
+    "Shanghai": [121.4737, 31.2304],
+    "Hong Kong": [114.1694, 22.3193],
+    "Singapore": [103.8198, 1.3521],
+    "Sydney": [151.2093, -33.8688],
+    "Mumbai": [72.8777, 19.0760],
+    "Toronto": [-79.3832, 43.6532]
+};
 
 const filterData = (data, query) => {
     if (!query) return data;
@@ -76,7 +90,31 @@ export function startMockServer() {
                 return data;
             })
 
-            // New endpoints for filters
+            this.get("/latency", (schema, request) => {
+                console.log('Mock server: Handling /latency request');
+                const targetCity = request.queryParams.city || 'New York';
+                const cities = generateCities();
+
+                // Generate latency data for up to 10 random cities
+                const data = cities
+                    .filter(city => city !== targetCity)
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 10)
+                    .map(city => ({
+                        from: city,
+                        to: targetCity,
+                        latency: Math.floor(Math.random() * 200 + 50),
+                        coordinates: {
+                            from: cityCoordinates[city],
+                            to: cityCoordinates[targetCity]
+                        }
+                    }));
+
+                console.log('Mock server: Returning latency data:', data);
+                return data;
+            })
+
+            // Filter endpoints
             this.get("/country", (schema, request) => {
                 const query = request.queryParams.q || '';
                 const data = filterData(generateCountries(), query);
