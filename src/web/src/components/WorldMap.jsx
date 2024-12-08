@@ -50,7 +50,7 @@ const WorldMap = memo(({ data = [], selectedCity }) => {
                 p: 2,
                 display: 'flex',
                 flexDirection: 'column',
-                height: 400,
+                height: 800,
                 backgroundColor: '#f8f9fa'
             }}
         >
