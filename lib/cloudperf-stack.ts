@@ -1,6 +1,9 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
@@ -9,6 +12,7 @@ import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 
 const stackPrefix = 'cloudperf-';
 const cidr = '10.0.0.0/16';
@@ -16,6 +20,9 @@ const cidr = '10.0.0.0/16';
 export class CloudperfStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // 为整个Stack添加标签
+    cdk.Tags.of(this).add('CostCenter', stackPrefix + 'stack');
 
     // 创建 VPC
     const vpc = new ec2.Vpc(this, stackPrefix + 'vpc', {
@@ -26,7 +33,7 @@ export class CloudperfStack extends cdk.Stack {
     const privateSubnetIds = vpc.privateSubnets.map(subnet => subnet.subnetId);
 
     // 创建 内网资源访问的安全组
-    const sg = new ec2.SecurityGroup(this, stackPrefix + 'int-sg', {
+    const sg = new ec2.SecurityGroup(this, 'int-sg', {
       vpc,
       description: 'Allow access to Internal Resource',
       allowAllOutbound: true
@@ -43,7 +50,7 @@ export class CloudperfStack extends cdk.Stack {
     );
 
     // 创建 Aurora Serverless 集群
-    const db = new rds.ServerlessCluster(this, stackPrefix + 'db', {
+    const db = new rds.ServerlessCluster(this, 'db-', {
       vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
@@ -64,6 +71,13 @@ export class CloudperfStack extends cdk.Stack {
       // securityGroupIds: ['securityGroupIds'],
       subnetIds: privateSubnetIds,
       securityGroupIds: [sg.securityGroupId],
+    });
+
+    // 创建项目使用的s3
+    const s3Bucket = new s3.Bucket(this, 'data-', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     // 创建 fping 任务对了
@@ -96,20 +110,20 @@ export class CloudperfStack extends cdk.Stack {
     });
 
     const environments = {
-      DB_WRITE_HOST: db.clusterEndpoint.hostname,
-      DB_READ_HOST: db.clusterEndpoint.hostname, // db.clusterReadEndpoint.hostname,
+      DB_WRITE_HOST: 'rds.cloudperf.vpc', // db.clusterEndpoint.hostname,
+      DB_READ_HOST: 'rds-r.cloudperf.vpc', // db.clusterEndpoint.hostname, db.clusterReadEndpoint.hostname,
       DB_PORT: String(db.clusterEndpoint.port),
       DB_SECRET: db.secret?.secretArn || '',
-      CACHE_HOST: cacheCluster.attrEndpointAddress,
+      CACHE_HOST: 'redis.cloudperf.vpc', // cacheCluster.attrEndpointAddress,
       CACHE_PORT: cacheCluster.attrEndpointPort,
       FPING_QUEUE: fpingQueue.queueUrl,
     };
 
     // 对外 api 接口函数
-    const lambdaRoleApi = new iam.Role(this, stackPrefix + 'role-api', {
+    const lambdaRoleApi = new iam.Role(this, 'role-api', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
-    const apiLambda = new lambda.Function(this, stackPrefix + 'api', {
+    const apiLambda = new lambda.Function(this, 'api', {
       runtime: lambda.Runtime.PYTHON_3_12,
       code: lambda.Code.fromAsset('src/api'),
       handler: 'lambda_function.lambda_handler',
@@ -123,24 +137,29 @@ export class CloudperfStack extends cdk.Stack {
     });
 
     // 提供系统的维护操作，包括初始化数据库等
-    const adminLambda = new lambda.Function(this, stackPrefix + 'admin', {
+    const lambdaRoleAdmin = new iam.Role(this, 'role-admin', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    });
+    const adminLambda = new lambda.Function(this, 'admin', {
       runtime: lambda.Runtime.PYTHON_3_12,
       code: lambda.Code.fromAsset('src/admin'),
       handler: 'lambda_function.lambda_handler',
       vpc: vpc,
       vpcSubnets: { subnets: vpc.privateSubnets },
-      role: lambdaRoleApi,
+      role: lambdaRoleAdmin,
       timeout: cdk.Duration.minutes(15),
       layers: [pythonLayer, dataLayer],
+      memorySize: 4096,
+      ephemeralStorageSize: cdk.Size.gibibytes(8),
       environment: environments,
       securityGroups: [sg],
     });
 
     // fping 任务队列
-    const lambdaRoleQueue = new iam.Role(this, stackPrefix + 'role-queue', {
+    const lambdaRoleQueue = new iam.Role(this, 'role-queue', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
-    const fpingQueueLambda = new lambda.Function(this, stackPrefix + 'fping-queue', {
+    const fpingQueueLambda = new lambda.Function(this, 'fping-queue', {
       runtime: lambda.Runtime.PYTHON_3_12,
       code: lambda.Code.fromAsset('src/fping-queue'),
       handler: 'lambda_function.lambda_handler',
@@ -156,9 +175,8 @@ export class CloudperfStack extends cdk.Stack {
     });
     fpingQueueLambda.addEventSource(eventSource);
 
-    lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
-    lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
-    const secretsManagerPolicy = new iam.PolicyStatement({
+    // 生成各模块Policy
+    const secretsManagerPolicyStatement = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         'secretsmanager:GetSecretValue',
@@ -166,22 +184,38 @@ export class CloudperfStack extends cdk.Stack {
       ],
       resources: [db.secret?.secretArn || '']
     });
-    lambdaRoleApi.attachInlinePolicy(
-      new iam.Policy(this, stackPrefix + 'policy-SecretsManager', {
-        statements: [secretsManagerPolicy]
-      })
-    );
-    lambdaRoleQueue.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
-    const sqsPolicy = new iam.PolicyStatement({
+    const secretsManagerPolicy = new iam.Policy(this, stackPrefix + 'policy-SecretsManager', {
+      statements: [secretsManagerPolicyStatement]
+    })
+    const sqsPolicyStatement = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes'],
       resources: [fpingQueue.queueArn],
     });
-    lambdaRoleQueue.attachInlinePolicy(
-      new iam.Policy(this, stackPrefix + 'policy-Sqs', {
-        statements: [sqsPolicy]
-      })
-    );
+    const sqsPolicy = new iam.Policy(this, stackPrefix + 'policy-Sqs', {
+      statements: [sqsPolicyStatement]
+    })
+    // 各lambda赋予权限
+    lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+    lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
+    lambdaRoleApi.attachInlinePolicy(secretsManagerPolicy);
+
+    lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+    lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
+    lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3ReadOnlyAccess"));
+    lambdaRoleAdmin.attachInlinePolicy(secretsManagerPolicy);
+
+    lambdaRoleQueue.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+    lambdaRoleQueue.attachInlinePolicy(sqsPolicy);
+
+    // 数据处理流程
+    new s3deploy.BucketDeployment(this, 'data', {
+      sources: [s3deploy.Source.asset('src/data')],
+      destinationBucket: s3Bucket,
+    });
+    const s3nadmin = new s3n.LambdaDestination(adminLambda);
+    s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.sql' });
+    s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.zip' });
 
     // 对外 api 服务
     const alb = new elbv2.ApplicationLoadBalancer(this, stackPrefix + 'api-alb', {
@@ -201,6 +235,36 @@ export class CloudperfStack extends cdk.Stack {
         enabled: true,
         path: '/'
       }
+    });
+
+    // 内部域名映射
+    const hostedZone = new route53.PrivateHostedZone(this, 'vpc', {
+      zoneName: 'cloudperf.vpc',
+      vpc: vpc
+    });
+    new route53.CnameRecord(this, 'RedisRecord', {
+      zone: hostedZone,
+      recordName: 'redis',
+      domainName: cacheCluster.attrEndpointAddress,
+      ttl: cdk.Duration.minutes(5)
+    });
+    new route53.CnameRecord(this, 'RDSRecord', {
+      zone: hostedZone,
+      recordName: 'rds',
+      domainName: db.clusterEndpoint.hostname,
+      ttl: cdk.Duration.minutes(5)
+    });
+    new route53.CnameRecord(this, 'RDSRRecord', {
+      zone: hostedZone,
+      recordName: 'rds-r',
+      domainName: db.clusterEndpoint.hostname,
+      ttl: cdk.Duration.minutes(5)
+    });
+    new route53.CnameRecord(this, 'APIRecord', {
+      zone: hostedZone,
+      recordName: 'api',
+      domainName: alb.loadBalancerDnsName,
+      ttl: cdk.Duration.minutes(5)
     });
 
     // 输出变量
@@ -234,5 +298,9 @@ export class CloudperfStack extends cdk.Stack {
       description: 'fping job queue'
     });
 
+    new cdk.CfnOutput(this, 's3Bucket', {
+      value: s3Bucket.bucketArn,
+      description: 'data exchange'
+    });
   }
 }

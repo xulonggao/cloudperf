@@ -2,7 +2,7 @@
 
 VERSION="python3.12"
 PYTHON_LIB="PyMysql redis"
-API_URL="http://cloudperf-api/job"
+API_URL="http://cloudperf.tansoft.org/job"
 
 TMP_PATH=$(mktemp -d)
 
