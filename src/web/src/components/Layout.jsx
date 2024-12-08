@@ -19,6 +19,7 @@ import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import SettingsIcon from '@mui/icons-material/Settings';
 import Dashboard from './Dashboard';
+import FilterToolbar from './FilterToolbar';
 
 const drawerWidth = 240;
 
@@ -85,29 +86,34 @@ export default function Layout() {
                 <Toolbar
                     sx={{
                         pr: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                     }}
                 >
-                    <IconButton
-                        edge="start"
-                        color="inherit"
-                        aria-label="open drawer"
-                        onClick={toggleDrawer}
-                        sx={{
-                            marginRight: '36px',
-                            ...(open && { display: 'none' }),
-                        }}
-                    >
-                        <MenuIcon />
-                    </IconButton>
-                    <Typography
-                        component="h1"
-                        variant="h6"
-                        color="inherit"
-                        noWrap
-                        sx={{ flexGrow: 1 }}
-                    >
-                        CloudPerf Dashboard
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <IconButton
+                            edge="start"
+                            color="inherit"
+                            aria-label="open drawer"
+                            onClick={toggleDrawer}
+                            sx={{
+                                marginRight: '36px',
+                                ...(open && { display: 'none' }),
+                            }}
+                        >
+                            <MenuIcon />
+                        </IconButton>
+                        <Typography
+                            component="h1"
+                            variant="h6"
+                            color="inherit"
+                            noWrap
+                        >
+                            CloudPerf Dashboard
+                        </Typography>
+                    </Box>
+                    <FilterToolbar />
                 </Toolbar>
             </AppBar>
             <Drawer variant="permanent" open={open}>

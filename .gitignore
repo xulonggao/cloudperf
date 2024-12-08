@@ -2,7 +2,13 @@
 !jest.config.js
 *.d.ts
 node_modules
+.DS_Store
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# 确保 src/web 目录本身不被忽略
+!src/web/
+# 取消忽略 src/web 下的所有 JS 文件
+!src/web/**/*.js
