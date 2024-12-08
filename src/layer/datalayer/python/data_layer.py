@@ -20,9 +20,9 @@ def mysql_select(sql:str, obj = None):
     conn.close()
     return row_all
 
-def mysql_runsql(sql:str):
+def mysql_runsql(sql:str, obj = None):
     ret = True
-    conn = pymysql.connect(host=settings.DB_READ_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
+    conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
     cursor = conn.cursor()
     try:
         cursor.execute(sql, obj)

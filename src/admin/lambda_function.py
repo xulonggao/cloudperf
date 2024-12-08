@@ -2,6 +2,8 @@ import json
 import os
 import zipfile
 import boto3
+import pymysql
+import settings
 from urllib.parse import urlparse
 from data_layer import mysql_runsql
 
@@ -24,18 +26,34 @@ def download_from_s3(s3_path):
     # Download file
     local_path = os.path.join(temp_dir, os.path.basename(key))
     s3_client = boto3.client('s3')
+    print(f'download file form s3://{bucket}/{key} to {local_path}')
     s3_client.download_file(bucket, key, local_path)
     
     return local_path
 
-def init_database():
-    """Initialize the database with base schema"""
-    with open('init.sql', 'r') as f:
-        sql_content = f.read()
-    mysql_runsql(sql_content)
-    return {'status': 'success', 'message': 'Database initialized'}
+def exec_sql(sql):
+    if sql == 'init_db':
+        conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, charset='utf8mb4', port=settings.DB_PORT)
+        cursor = conn.cursor()
+        try:
+            sql = "CREATE DATABASE IF NOT EXISTS `" + settings.DB_DATABASE + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+            cursor.execute(sql)
+            ret = cursor.fetchall()
+        except Exception as e:
+            print(f"Error executing SQL script: {e}")
+            conn.rollback()
+            ret = False
+        finally:
+            cursor.close()
+            conn.close()
+        return ret
+    ret = mysql_runsql(sql)
+    return {
+        "status": 200,
+        "message": ret
+    }
 
-def exec_sql(sql_file):
+def exec_sqlfile(sql_file):
     """
     Execute SQL from a file or zip archive, supporting both local and S3 files
     Args:
@@ -46,10 +64,12 @@ def exec_sql(sql_file):
     """
     try:
         # Handle S3 files
+        print(f'exec_sql {sql_file}')
         if sql_file.startswith('s3://'):
             local_file = download_from_s3(sql_file)
             sql_file = local_file
 
+        print(f'exec_sql {sql_file}')
         # Handle zip files
         if sql_file.endswith('.zip'):
             temp_dir = '/tmp/sql_files'
@@ -61,6 +81,7 @@ def exec_sql(sql_file):
             results = []
             for root, _, files in os.walk(temp_dir):
                 for file in files:
+                    print(f'exec_sql zipfile {file}')
                     if file.endswith('.sql'):
                         sql_path = os.path.join(root, file)
                         with open(sql_path, 'r') as f:
@@ -71,7 +92,7 @@ def exec_sql(sql_file):
             # Cleanup
             os.system(f'rm -rf {temp_dir}')
             return {
-                'status': 'success',
+                'status': 200,
                 'message': 'Executed all SQL files from zip',
                 'details': results
             }
@@ -82,19 +103,19 @@ def exec_sql(sql_file):
                 sql_content = f.read()
             mysql_runsql(sql_content)
             return {
-                'status': 'success',
+                'status': 200,
                 'message': f'Executed SQL file: {sql_file}'
             }
         
         else:
             return {
-                'status': 'error',
+                'status': 404,
                 'message': 'Invalid file type. Must be .sql or .zip'
             }
             
     except Exception as e:
         return {
-            'status': 'error',
+            'status': 500,
             'message': str(e)
         }
     finally:
@@ -106,28 +127,45 @@ def exec_sql(sql_file):
                 pass
 
 # Example usage:
-# event = {'action': 'init_database'}
-# event = {'action': 'exec_sql', 'param': 'update.sql'}
-# event = {'action': 'exec_sql', 'param': 'updates.zip'}
-# event = {'action': 'exec_sql', 'param': 's3://my-bucket/sql/update.sql'}
-# event = {'action': 'exec_sql', 'param': 's3://my-bucket/sql/updates.zip'}
+# event = {"action": "exec_sqlfile", "param": "update.sql"}
+# event = {"action": "exec_sqlfile", "param": "updates.zip"}
+# event = {"action": "exec_sqlfile", "param": "s3://my-bucket/sql/update.sql"}
+# event = {"action": "exec_sqlfile", "param": "s3://my-bucket/sql/updates.zip"}
+# event = {"action": "exec_sql", "param": "init_db"}
+# event = {"action": "exec_sql", "param": "CREATE DATABASE IF NOT EXISTS `cloudperf` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"}
+# or s3 notify message
 def lambda_handler(event, context):
-    ret = {"status":404, "msg":"not found"}
-    # s3 notify
-    if 'Records' in event:
-        for record in event['Records']:
-            # 获取S3事件信息
-            bucket = record['s3']['bucket']['name']
-            key = record['s3']['object']['key']
-            event_name = record['eventName']
-            print(f"Processing event {event_name} for {bucket}/{key}")
-            exec_sql(f's3://{bucket}/{key}')
-    else:
+    try:
+        # Handle S3 notifications
+        ret = {"status":404, "msg":"not found"}
+        if 'Records' in event:
+            for record in event['Records']:
+                bucket = record['s3']['bucket']['name']
+                key = record['s3']['object']['key']
+                event_name = record['eventName']
+                print(f"Processing event {event_name} for {bucket}/{key}")
+                ret = exec_sqlfile(f's3://{bucket}/{key}')
+            return ret
+
+        # Handle direct function calls
         action = event.get('action')
+        if not action:
+            return ret
+
+        # Get the function from current module's globals
+        func = globals().get(action)
+        if not func or not callable(func):
+            return {"status": 404, "message": f"Action '{action}' not found or not callable"}
+
         param = event.get('param')
-        func = getattr(globals(), action)
         if param:
-            func(param)
+            ret = func(param)
         else:
-            func(event)
-    return ret
+            ret = func()
+        return ret
+
+    except Exception as e:
+        return {
+            "status": 500,
+            "message": f"Error processing request: {str(e)}"
+        }

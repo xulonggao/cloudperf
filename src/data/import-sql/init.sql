@@ -1,3 +1,7 @@
+CREATE DATABASE IF NOT EXISTS `cloudperf` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+
+USE DATABASE `cloudperf`;
+
 CREATE TABLE `country` (
     `code` varchar(2) NOT NULL PRIMARY KEY COMMENT '国家代码',
     `name` varchar(128) DEFAULT NULL COMMENT '国家名称',

@@ -9,6 +9,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
@@ -209,13 +210,33 @@ export class CloudperfStack extends cdk.Stack {
     lambdaRoleQueue.attachInlinePolicy(sqsPolicy);
 
     // 数据处理流程
+    const s3nadmin = new s3n.LambdaDestination(adminLambda);
+    s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.sql' });
+    s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.zip' });
+    // 创建Custom Resource来调用Admin Lambda中的初始化
+    new cr.AwsCustomResource(this, 'InvokeLambda', {
+      onCreate: {
+        service: 'Lambda',
+        action: 'invoke',
+        parameters: {
+          FunctionName: adminLambda.functionName,
+          Payload: JSON.stringify({ 'action': 'exec_sql', 'param': 'init_db' }),
+        },
+        physicalResourceId: cr.PhysicalResourceId.of('InvokeLambda'),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [adminLambda.functionArn],
+        }),
+      ]),
+    });
+    // 上传建表sql，会触发自动运行
     new s3deploy.BucketDeployment(this, 'data', {
       sources: [s3deploy.Source.asset('src/data')],
       destinationBucket: s3Bucket,
     });
-    const s3nadmin = new s3n.LambdaDestination(adminLambda);
-    s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.sql' });
-    s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.zip' });
 
     // 对外 api 服务
     const alb = new elbv2.ApplicationLoadBalancer(this, stackPrefix + 'api-alb', {
