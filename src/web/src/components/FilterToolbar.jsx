@@ -11,6 +11,49 @@ const debounce = (func, wait) => {
     };
 };
 
+const AutocompleteField = ({ label, options, value, onChange, onInputChange, loading }) => (
+    <Autocomplete
+        size="small"
+        sx={{
+            width: 180,
+            '.MuiOutlinedInput-root': {
+                bgcolor: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 1)',
+                },
+            },
+        }}
+        options={options}
+        value={value}
+        onChange={onChange}
+        onInputChange={onInputChange}
+        loading={loading}
+        renderInput={(params) => (
+            <TextField
+                {...params}
+                label={label}
+                InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                        <>
+                            {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                            {params.InputProps.endAdornment}
+                        </>
+                    ),
+                }}
+            />
+        )}
+        getOptionLabel={(option) => option || ''}
+        isOptionEqualToValue={(option, value) => option === value}
+        filterOptions={(options, { inputValue }) => {
+            const filtered = options.filter(option =>
+                option.toLowerCase().includes(inputValue.toLowerCase())
+            );
+            return filtered;
+        }}
+    />
+);
+
 export default function FilterToolbar() {
     const [countries, setCountries] = useState([]);
     const [cities, setCities] = useState([]);
@@ -71,9 +114,18 @@ export default function FilterToolbar() {
     }, []);
 
     return (
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2 }}>
-            <Autocomplete
-                sx={{ width: 200 }}
+        <Box
+            sx={{
+                display: 'flex',
+                gap: 2,
+                alignItems: 'center',
+                '& .MuiAutocomplete-root': {
+                    minWidth: 180,
+                }
+            }}
+        >
+            <AutocompleteField
+                label="Country"
                 options={countries}
                 value={selectedCountry}
                 onChange={(event, newValue) => setSelectedCountry(newValue)}
@@ -81,26 +133,10 @@ export default function FilterToolbar() {
                     debouncedFetchCountries(newInputValue);
                 }}
                 loading={loading.countries}
-                renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label="Country"
-                        size="small"
-                        InputProps={{
-                            ...params.InputProps,
-                            endAdornment: (
-                                <>
-                                    {loading.countries ? <CircularProgress color="inherit" size={20} /> : null}
-                                    {params.InputProps.endAdornment}
-                                </>
-                            ),
-                        }}
-                    />
-                )}
             />
 
-            <Autocomplete
-                sx={{ width: 200 }}
+            <AutocompleteField
+                label="City"
                 options={cities}
                 value={selectedCity}
                 onChange={(event, newValue) => setSelectedCity(newValue)}
@@ -108,26 +144,10 @@ export default function FilterToolbar() {
                     debouncedFetchCities(newInputValue);
                 }}
                 loading={loading.cities}
-                renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label="City"
-                        size="small"
-                        InputProps={{
-                            ...params.InputProps,
-                            endAdornment: (
-                                <>
-                                    {loading.cities ? <CircularProgress color="inherit" size={20} /> : null}
-                                    {params.InputProps.endAdornment}
-                                </>
-                            ),
-                        }}
-                    />
-                )}
             />
 
-            <Autocomplete
-                sx={{ width: 200 }}
+            <AutocompleteField
+                label="ASN"
                 options={asns}
                 value={selectedAsn}
                 onChange={(event, newValue) => setSelectedAsn(newValue)}
@@ -135,22 +155,6 @@ export default function FilterToolbar() {
                     debouncedFetchAsns(newInputValue);
                 }}
                 loading={loading.asns}
-                renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label="ASN"
-                        size="small"
-                        InputProps={{
-                            ...params.InputProps,
-                            endAdornment: (
-                                <>
-                                    {loading.asns ? <CircularProgress color="inherit" size={20} /> : null}
-                                    {params.InputProps.endAdornment}
-                                </>
-                            ),
-                        }}
-                    />
-                )}
             />
         </Box>
     );
