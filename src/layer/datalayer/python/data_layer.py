@@ -11,6 +11,24 @@ redis_pool = redis.ConnectionPool(
     socket_timeout=5,
     socket_connect_timeout=5)
 
+def mysql_create_database(database:str = None):
+    if database == None:
+        database = settings.DB_DATABASE
+    conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, charset='utf8mb4', port=settings.DB_PORT)
+    cursor = conn.cursor()
+    try:
+        sql = "CREATE DATABASE IF NOT EXISTS `" + database + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+        cursor.execute(sql)
+        ret = cursor.fetchall()
+    except Exception as e:
+        print(f"Error executing SQL script: {e}")
+        conn.rollback()
+        ret = False
+    finally:
+        cursor.close()
+        conn.close()
+    return ret
+
 def mysql_select(sql:str, obj = None):
     conn = pymysql.connect(host=settings.DB_READ_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
     cursor = conn.cursor()
@@ -20,13 +38,45 @@ def mysql_select(sql:str, obj = None):
     conn.close()
     return row_all
 
-def mysql_runsql(sql:str, obj = None):
+def mysql_batch_runsql(sql:str):
     ret = True
+    # Enable multi-statements in connection
+    conn = pymysql.connect(
+        host=settings.DB_WRITE_HOST,
+        user=settings.DB_USER,
+        passwd=settings.DB_PASS,
+        db=settings.DB_DATABASE,
+        charset='utf8mb4',
+        port=settings.DB_PORT,
+        client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
+    )
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql)
+        # Handle multiple result sets
+        while True:
+            try:
+                cursor.fetchall()
+                if not cursor.nextset():
+                    break
+            except:
+                pass
+        conn.commit()
+    except Exception as e:
+        print(f"Error executing SQL script: {e}")
+        conn.rollback()
+        ret = False
+    finally:
+        cursor.close()
+        conn.close()
+    return ret
+
+def mysql_runsql(sql:str, obj = None):
     conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
     cursor = conn.cursor()
     try:
         cursor.execute(sql, obj)
-        conn.commit()
+        ret = cursor.fetchall()
     except Exception as e:
         print(f"Error executing SQL script: {e}")
         conn.rollback()

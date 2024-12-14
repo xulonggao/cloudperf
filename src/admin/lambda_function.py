@@ -2,10 +2,8 @@ import json
 import os
 import zipfile
 import boto3
-import pymysql
-import settings
 from urllib.parse import urlparse
-from data_layer import mysql_runsql
+import data_layer
 
 def download_from_s3(s3_path):
     """
@@ -33,24 +31,11 @@ def download_from_s3(s3_path):
 
 def exec_sql(sql):
     if sql == 'init_db':
-        conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, charset='utf8mb4', port=settings.DB_PORT)
-        cursor = conn.cursor()
-        try:
-            sql = "CREATE DATABASE IF NOT EXISTS `" + settings.DB_DATABASE + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-            cursor.execute(sql)
-            ret = cursor.fetchall()
-        except Exception as e:
-            print(f"Error executing SQL script: {e}")
-            conn.rollback()
-            ret = False
-        finally:
-            cursor.close()
-            conn.close()
-        return ret
-    ret = mysql_runsql(sql)
+        return mysql_create_database()
+    ret = data_layer.mysql_runsql(sql)
     return {
         "status": 200,
-        "message": ret
+        "msg": ret
     }
 
 def exec_sqlfile(sql_file):
@@ -86,14 +71,14 @@ def exec_sqlfile(sql_file):
                         sql_path = os.path.join(root, file)
                         with open(sql_path, 'r') as f:
                             sql_content = f.read()
-                        mysql_runsql(sql_content)
+                        data_layer.mysql_batch_runsql(sql_content)
                         results.append(f'Executed {file}')
             
             # Cleanup
             os.system(f'rm -rf {temp_dir}')
             return {
                 'status': 200,
-                'message': 'Executed all SQL files from zip',
+                'msg': 'Executed all SQL files from zip',
                 'details': results
             }
         
@@ -101,22 +86,22 @@ def exec_sqlfile(sql_file):
         elif sql_file.endswith('.sql'):
             with open(sql_file, 'r') as f:
                 sql_content = f.read()
-            mysql_runsql(sql_content)
+            data_layer.mysql_batch_runsql(sql_content)
             return {
                 'status': 200,
-                'message': f'Executed SQL file: {sql_file}'
+                'msg': f'Executed SQL file: {sql_file}'
             }
         
         else:
             return {
                 'status': 404,
-                'message': 'Invalid file type. Must be .sql or .zip'
+                'msg': 'Invalid file type. Must be .sql or .zip'
             }
             
     except Exception as e:
         return {
             'status': 500,
-            'message': str(e)
+            'msg': str(e)
         }
     finally:
         # Cleanup any downloaded S3 files
@@ -155,9 +140,10 @@ def lambda_handler(event, context):
         # Get the function from current module's globals
         func = globals().get(action)
         if not func or not callable(func):
-            return {"status": 404, "message": f"Action '{action}' not found or not callable"}
+            return {"status": 404, "msg": f"Action '{action}' not found or not callable"}
 
         param = event.get('param')
+        print(f'process action: {action} param: {param}')
         if param:
             ret = func(param)
         else:
@@ -167,5 +153,5 @@ def lambda_handler(event, context):
     except Exception as e:
         return {
             "status": 500,
-            "message": f"Error processing request: {str(e)}"
+            "msg": f"Error processing request: {str(e)}"
         }

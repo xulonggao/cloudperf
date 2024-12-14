@@ -29,6 +29,14 @@ npm install aws-cdk-lib@latest
 
 * 创建数据表
 
+数据库的创建是通过cdk部署中的CustomResource部署的，使用 {"action": "exec_sql", "param": "init_db"} 调用 admin Lambda 完成。
+
+平时数据库维护操作，也可以通过该Lambda运行，如：{"action": "exec_sqlfile", "param": "s3://my-bucket/sql/updates.zip"}
+
+新更新的数据，可以直接把sql文件（zip文件）上传到 cloudperfstack-data 开头的 s3 的 import-sql 目录中，程序会自动导入
+
+数据表的创建是通过 默认上传到 cloudperfstack-data 桶的 init.sql 创建的
+
 ```
 
 ```
