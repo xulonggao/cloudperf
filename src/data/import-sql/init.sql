@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS `iprange` (
     `end_ip` INT UNSIGNED NOT NULL COMMENT 'IP段结束',
     `city_id` INT UNSIGNED NOT NULL COMMENT '唯一标识',
     `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
-    `lastcheck_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后更新时间',
+    `lastcheck_time` timestamp NOT NULL DEFAULT '1970-01-02 00:00:01' COMMENT '最后更新时间，该值只有做这个任务时才更新',
     PRIMARY KEY (`start_ip`, `end_ip`),
     KEY `city_id` (`city_id`),
     KEY `lastcheck_time` (`lastcheck_time`)

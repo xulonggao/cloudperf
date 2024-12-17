@@ -5,43 +5,6 @@ import boto3
 from urllib.parse import urlparse
 import data_layer
 
-def download_from_s3(s3_path):
-    """
-    Download file from S3
-    Args:
-        s3_path: S3 URL (s3://bucket-name/path/to/file)
-    Returns:
-        str: Path to downloaded file
-    """
-    parsed = urlparse(s3_path)
-    bucket = parsed.netloc
-    key = parsed.path.lstrip('/')
-    
-    # Create temp directory if it doesn't exist
-    temp_dir = '/tmp/s3_files'
-    os.makedirs(temp_dir, exist_ok=True)
-    
-    # Download file
-    local_path = os.path.join(temp_dir, os.path.basename(key))
-    s3_client = boto3.client('s3')
-    print(f'download file form s3://{bucket}/{key} to {local_path}')
-    s3_client.download_file(bucket, key, local_path)
-    
-    return local_path
-
-def get_city_id(ip:str):
-    cityid = data_layer.get_cityid_by_ip(ip)
-    return cityid
-
-def exec_sql(sql):
-    if sql == 'init_db':
-        return data_layer.mysql_create_database()
-    ret = data_layer.mysql_batch_execute(sql)
-    return {
-        "status": 200,
-        "msg": ret
-    }
-
 def exec_sqlfile(sql_file):
     """
     Execute SQL from a file or zip archive, supporting both local and S3 files
@@ -124,6 +87,19 @@ def exec_sqlfile(sql_file):
 # or s3 notify message
 def lambda_handler(event, context):
     try:
+        # 定时 1 分钟
+        # 如果 queue 中队列数超过 xxx 了，退出本次刷新
+        # 检查 iprange 表，根据 lastcheck_time 排序，找出 lastcheck_time < now - 7days 的数据，准备进行更新
+        # 通过 start_ip end_ip city_id 来更新对应 pingable 表的数据，更新 lastresult 左移1位并填充0，表示这个ip最新数据没有更新了
+        # 检查 pingable 表，删除 lastresult 全为 0 的条目，因为该ip已经连续不可ping了（就算新的任务他又可ping了，重新插入就是）
+        # 提交 start_ip end_ip city_id 的 ping 探测任务到 queue 中，queue 陆续完成探测任务时，会去更新对应 ip 的 lastresult 值，把新移位的值置为1，不存在的会插入
+
+        # 定时 1 分钟
+        # 
+
+        # statistics 只记录最新数据
+        # 每日通过 update_time 把增量变化部分落 s3
+        # 通过 athena 查历史数据
         # Handle S3 notifications
         ret = {"status":404, "msg":"not found"}
         if 'Records' in event:

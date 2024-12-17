@@ -79,7 +79,13 @@ def lambda_handler(event, context):
     querys = event['queryStringParameters']
     requests['next'] = querys['next'] if 'next' in querys else ''
     print(requests)
-    ret = fping_logic(requests)
+    apimapping = {
+        '/job':fping_logic,
+    }
+    if requests['path'] not in apimapping:
+        ret = {'statusCode':404, 'result':'not found'}
+    else:
+        ret = apimapping[requests['path']](requests)
     #ret['result']['debug'] = event;
     #ret['result']['requests'] = requests;
     if requests['version'] == 'apigw-httpapi2.0':
@@ -94,3 +100,10 @@ def lambda_handler(event, context):
         },
         'body': json.dumps(ret['result'])
     };
+
+# local test
+if __name__ == "__main__":
+    import sys
+    print(sys.argv[1])
+    ret = lambda_handler(json.loads(sys.argv[1]), None)
+    print(ret)

@@ -173,12 +173,20 @@ def mysql_select_onevalue(sql:str, obj = None, default = 0):
     return row[0][0]
 
 def cache_get(key:str):
-    r = redis.StrictRedis(connection_pool=redis_pool)
-    return r.get(key)
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        return r.get(key)
+    except Exception as e:
+        print('cache get failed.')
+        return None
 
 def cache_set(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
-    r = redis.StrictRedis(connection_pool=redis_pool)
-    return r.setex(key, ttl, value)
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        return r.setex(key, ttl, value)
+    except Exception as e:
+        print('cache set failed.')
+        return None
 
 def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE_TTL):
     key = f'sql{hash(sql)}'
