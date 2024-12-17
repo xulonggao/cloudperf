@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `asn` (
     `country_code` varchar(2) NOT NULL COMMENT 'ASN所属国家',
     `type` varchar(16) DEFAULT NULL COMMENT 'ASN类型：hosting,education,isp,government,country',
     `ipcounts` INT UNSIGNED DEFAULT 0 COMMENT 'ASN IP总数量',
-    `name` varchar(128) DEFAULT NULL COMMENT 'ASN名字',
+    `name` varchar(256) DEFAULT NULL COMMENT 'ASN名字',
     `domain` varchar(128) DEFAULT NULL COMMENT 'ASN域名',
     `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY `country_code` (`country_code`)

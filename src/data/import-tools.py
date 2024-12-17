@@ -1,3 +1,9 @@
+
+'''
+pip install iso3166
+python3 import-tools.py -f range/ > range.sql && zip import-sql/range.zip range.sql && rm range.sql
+python3 import-tools.py -f country/ > country.sql && zip import-sql/country.zip country.sql && rm country.sql
+'''
 import ipaddress
 import csv
 import argparse
@@ -24,6 +30,9 @@ def ip_range_to_cidr(start_ip, end_ip):
         subnet = ipaddress.ip_network(f'{subnet.broadcast_address + 1}/{32}', strict=False)
 
     return subnets
+
+def safe_name(name:str):
+    return name.replace("'", '').replace(';', '')
 
 def get_files(path:str, ext:str = ''):
     file_list = []
@@ -64,9 +73,12 @@ def parse_file(filename:str, alltable:dict):
         }
         '''
             表数据获取来源：
+            rangefile 是 ip段所在城市数据
+            countryfile 是国家里isp数据，只使用里面的asn
             从数据结构看出，需要先处理rangefile数据，再处理countryfile数据。
             表处理顺序：
-                rangefile -> country,city -> (city表数据处理)iprange，这里city_id是会影响后续的录入，所以考虑city_id不是自增而是使用asn+国家+城市唯一生成，这样数据可以直接处理，不用和数据库交互
+                rangefile -> country,city -> (city表数据处理)iprange
+                    这里city_id是会影响后续的录入，所以考虑city_id不是自增而是使用asn+国家+城市唯一生成，这样数据可以直接处理，不用和数据库交互
                 countryfile -> (country表数据处理)asn
             `country`(`code`,`name`,`continent_code`,`continent_name`) 
                 code：rangefile.country
@@ -119,9 +131,9 @@ def parse_file(filename:str, alltable:dict):
                         update_cache['country'] = {}
                     update_cache['country'][row['country']] = {
                         'code': row['country'].upper(),
-                        'name': row['country_name'].replace("'", ''),
+                        'name': safe_name(row['country_name']),
                         'continent_code': row['continent'],
-                        'continent_name': row['continent_name'].replace("'", '')
+                        'continent_name': safe_name(row['continent_name'])
                     }
                 # city表处理
                 cityid = get_cityid(row['asnno'], row['country'], row['city'])
@@ -132,8 +144,8 @@ def parse_file(filename:str, alltable:dict):
                             'id': cityid,
                             'asn': row['asnno'],
                             'country_code': row['country'].upper(),
-                            'name': row['city'].replace("'", ''),
-                            'region': row['region'].replace("'", ''),
+                            'name': safe_name(row['city']),
+                            'region': safe_name(row['region']),
                             'latitude': float(row['latitude']) if row['latitude'] != '' else 0.0,
                             'longitude': float(row['longitude']) if row['longitude'] != '' else 0.0
                     }
@@ -183,7 +195,7 @@ def parse_file(filename:str, alltable:dict):
                         'country_code': country_code,
                         'type': row['Type\xa0ISP'],
                         'ipcounts': int(row['Number of IPs'].replace(',', '').replace(' ','')),
-                        'name': row['ISP Name'].replace("'", ''),
+                        'name': safe_name(row['ISP Name']),
                         'domain': '',
                     }
     return update_cache
