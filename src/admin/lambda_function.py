@@ -3,6 +3,10 @@ import os
 import zipfile
 import boto3
 from urllib.parse import urlparse
+# local test
+if __name__ == "__main__":
+    import sys
+    sys.path.append('../layer/datalayer/python/')
 import data_layer
 
 def download_from_s3(s3_path):
@@ -31,8 +35,8 @@ def download_from_s3(s3_path):
 
 def exec_sql(sql):
     if sql == 'init_db':
-        return mysql_create_database()
-    ret = data_layer.mysql_runsql(sql)
+        return data_layer.mysql_create_database()
+    ret = data_layer.mysql_batch_execute(sql)
     return {
         "status": 200,
         "msg": ret
@@ -48,13 +52,12 @@ def exec_sqlfile(sql_file):
         dict: Execution result
     """
     try:
-        # Handle S3 files
         print(f'exec_sql {sql_file}')
+        # Handle S3 files
         if sql_file.startswith('s3://'):
             local_file = download_from_s3(sql_file)
             sql_file = local_file
 
-        print(f'exec_sql {sql_file}')
         # Handle zip files
         if sql_file.endswith('.zip'):
             temp_dir = '/tmp/sql_files'
@@ -71,7 +74,7 @@ def exec_sqlfile(sql_file):
                         sql_path = os.path.join(root, file)
                         with open(sql_path, 'r') as f:
                             sql_content = f.read()
-                        data_layer.mysql_batch_runsql(sql_content)
+                        data_layer.mysql_batch_execute(sql_content)
                         results.append(f'Executed {file}')
             
             # Cleanup
@@ -86,7 +89,7 @@ def exec_sqlfile(sql_file):
         elif sql_file.endswith('.sql'):
             with open(sql_file, 'r') as f:
                 sql_content = f.read()
-            data_layer.mysql_batch_runsql(sql_content)
+            data_layer.mysql_batch_execute(sql_content)
             return {
                 'status': 200,
                 'msg': f'Executed SQL file: {sql_file}'
@@ -112,12 +115,12 @@ def exec_sqlfile(sql_file):
                 pass
 
 # Example usage:
-# event = {"action": "exec_sqlfile", "param": "update.sql"}
-# event = {"action": "exec_sqlfile", "param": "updates.zip"}
-# event = {"action": "exec_sqlfile", "param": "s3://my-bucket/sql/update.sql"}
-# event = {"action": "exec_sqlfile", "param": "s3://my-bucket/sql/updates.zip"}
-# event = {"action": "exec_sql", "param": "init_db"}
-# event = {"action": "exec_sql", "param": "CREATE DATABASE IF NOT EXISTS `cloudperf` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"}
+# event = {"action":"exec_sqlfile","param":"update.sql"}
+# event = {"action":"exec_sqlfile","param":"updates.zip"}
+# event = {"action":"exec_sqlfile","param":"s3://my-bucket/sql/update.sql"}
+# event = {"action":"exec_sqlfile","param":"s3://my-bucket/sql/updates.zip"}
+# event = {"action":"exec_sql","param":"init_db"}
+# event = {"action":"exec_sql","param":"CREATE DATABASE IF NOT EXISTS `cloudperf` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"}
 # or s3 notify message
 def lambda_handler(event, context):
     try:
@@ -155,3 +158,8 @@ def lambda_handler(event, context):
             "status": 500,
             "msg": f"Error processing request: {str(e)}"
         }
+
+# local test
+if __name__ == "__main__":
+    print(sys.argv[1])
+    lambda_handler(json.loads(sys.argv[1]), None)

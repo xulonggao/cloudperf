@@ -28,3 +28,6 @@ if DB_SECRET != '':
     secret_dict = json.loads(valobj['SecretString'])
     DB_USER = secret_dict['username']
     DB_PASS = secret_dict['password']
+else:
+    DB_USER = os.environ.get('DB_USER', '')
+    DB_PASS = os.environ.get('DB_PASS', '')

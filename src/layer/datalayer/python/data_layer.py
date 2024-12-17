@@ -38,6 +38,86 @@ def mysql_select(sql:str, obj = None):
     conn.close()
     return row_all
 
+# 会打印结果
+def mysql_batch_execute(sql: str):
+    results = []
+    try:
+        conn = pymysql.connect(
+            host=settings.DB_WRITE_HOST,
+            user=settings.DB_USER,
+            passwd=settings.DB_PASS,
+            db=settings.DB_DATABASE,
+            charset='utf8mb4',
+            port=settings.DB_PORT,
+            client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
+        )
+        cursor = conn.cursor()
+
+        # 分割SQL语句
+        sql_statements = sql.strip().split(";")
+        
+        # 执行每条SQL语句
+        for sql in sql_statements:
+            sql = sql.strip()
+            if sql:  # 忽略空语句
+                cursor.execute(sql)
+                if sql.lower().startswith("select"):
+                    # 查询语句
+                    rows = cursor.fetchall()
+                    if rows:
+                        columns = [desc[0] for desc in cursor.description]
+                        print("列名:", " | ".join(columns))
+                        for row in rows:
+                            print(" | ".join(map(str, row)))
+                        results.append({
+                            'sql': sql,
+                            'type': 'query',
+                            'columns': columns,
+                            'rows': rows
+                        })
+                    else:
+                        print('无结果返回')
+                        results.append({
+                            'sql': sql,
+                            'type': 'query',
+                            'message': '无结果返回'
+                        })
+                else:
+                    print(f"影响行数: {cursor.rowcount}")
+                    # 非查询语句
+                    results.append({
+                        'sql': sql,
+                        'type': 'update',
+                        'affected_rows': cursor.rowcount
+                    })
+                conn.commit()
+
+    except Exception as e:
+        print(f"{sql}\n错误: {str(e)}")
+        results.append({'error': str(e)})
+
+    finally:
+        if 'conn' in locals():
+            conn.close()
+    return results
+
+def mysql_print_results(results):
+    """打印执行结果"""
+    for result in results:
+        if 'error' in result:
+            print(f"\n错误: {result['error']}")
+            continue
+        print(f"\n执行SQL: {result['sql']}")        
+        if result['type'] == 'query':
+            if 'columns' in result:
+                print("列名:", " | ".join(result['columns']))
+                for row in result['rows']:
+                    print(" | ".join(map(str, row)))
+            else:
+                print(result['message'])
+        else:
+            print(f"影响行数: {result['affected_rows']}")   
+
 def mysql_batch_runsql(sql:str):
     ret = True
     # Enable multi-statements in connection
