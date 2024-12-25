@@ -119,6 +119,9 @@ export class CloudperfStack extends cdk.Stack {
       CACHE_PORT: cacheCluster.attrEndpointPort,
       FPING_QUEUE: fpingQueue.queueUrl,
     };
+    const web_environments = {
+      AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap',
+    }
 
     // 对外 api 接口函数
     const lambdaRoleApi = new iam.Role(this, 'role-api', {
@@ -176,6 +179,26 @@ export class CloudperfStack extends cdk.Stack {
     });
     fpingQueueLambda.addEventSource(eventSource);
 
+    // 对外 web 函数
+    const lambdaRoleWeb = new iam.Role(this, 'role-web', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    });
+    const webLambda = new lambda.Function(this, 'web', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.X86_64,
+      code: lambda.Code.fromAsset('src/web/lambda'),
+      handler: 'bootstrap',
+      role: lambdaRoleWeb,
+      timeout: cdk.Duration.minutes(1),
+      layers: [
+        lambda.LayerVersion.fromLayerVersionArn(this, 'LambdaWebAdapter',
+          `arn:aws:lambda:${this.region}:753240598075:layer:LambdaAdapterLayerX86:23`),
+        lambda.LayerVersion.fromLayerVersionArn(this, 'Nginx',
+          `arn:aws:lambda:${this.region}:753240598075:layer:Nginx123X86:12`),
+      ],
+      environment: web_environments,
+    });
+
     // 生成各模块Policy
     const secretsManagerPolicyStatement = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -208,6 +231,8 @@ export class CloudperfStack extends cdk.Stack {
 
     lambdaRoleQueue.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
     lambdaRoleQueue.attachInlinePolicy(sqsPolicy);
+
+    lambdaRoleWeb.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
 
     // 数据处理流程
     const s3nadmin = new s3n.LambdaDestination(adminLambda);

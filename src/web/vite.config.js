@@ -23,7 +23,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: 'dist',
+    outDir: 'lambda/app/public',
     sourcemap: false,
     minify: true,
     assetsDir: 'assets',
