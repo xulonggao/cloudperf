@@ -1,6 +1,68 @@
 import json
 import data_layer
 
+def webapi_stats(requests):
+    return {
+        'statusCode': 200,
+        'result': {
+            "activeNodes": 234,
+            "avgLatency": "45ms",
+            "networkStatus": "98.5%",
+            "regions": 12
+        }
+    }
+
+def webapi_performance(requests):
+    return {
+        'statusCode': 200,
+        'result': [
+            {
+                "name": "00:00",
+                "latency": 45,
+                "throughput": 240
+            }
+        ]
+    }
+
+def webapi_regions(requests):
+    return {
+        'statusCode': 200,
+        'result': [
+            {
+            "name": "NA",
+            "value": 4000
+            }
+        ]
+    }
+
+def webapi_latency(requests):
+    return {
+        'statusCode': 200,
+        'result': [
+            {"from": 'Mumbai', "to": 'New York', "latency": 243},
+            {"from": 'Australia', "to": 'New York', "latency": 253}
+        ]
+    }
+
+def webapi_country(requests):
+    return {
+        'statusCode': 200,
+        'result': ['United States', 'China', 'Japan', 'Germany', 'United Kingdom', 'France', 'India', 'Canada', 'Brazil', 'Australia']
+    }
+
+def webapi_city(requests):
+    return {
+        'statusCode': 200,
+        'result': ['New York', 'Tokyo', 'London', 'Paris', 'Shanghai', 'Hong Kong', 'Singapore', 'Sydney', 'Mumbai', 'Toronto']
+    }
+
+def webapi_asn(requests):
+    return {
+        'statusCode': 200,
+        'result': ['AS7922 Comcast', 'AS3356 Level 3', 'AS701 Verizon', 'AS2914 NTT', 'AS6939 Hurricane Electric', 'AS4134 China Telecom', 'AS9808 China Mobile', 'AS20940 Akamai', 'AS16509 Amazon', 'AS15169 Google']
+    }
+
+
 '''
 requests: {
     version: "apigw-httpapi2.0",
@@ -68,9 +130,13 @@ def lambda_handler(event, context):
                 'path': event['requestContext']['path']
             }
     else:
+        # 健康检查字段：
+        # {'requestContext': {'elb': {'targetGroupArn': 'arn:aws:elasticloadbalancing:us-east-1:675857233193:targetgroup/Cloudp-cloud-Y6ZDQYYVEO72/ba784127f812d2e6'}},
+        # 'httpMethod': 'GET', 'path': '/', 'queryStringParameters': {}, 'headers': {'user-agent': 'ELB-HealthChecker/2.0'}, 
+        # 'body': '', 'isBase64Encoded': False}
         requests = {
             'version': 'alb',
-            'srcip': event['headers']['x-forwarded-for'],
+            'srcip': event['headers']['x-forwarded-for'] if 'x-forwarded-for' in event['headers'] else '',
             'useragent': event['headers']['user-agent'],
             'method': event['httpMethod'],
             'body': event['body'],
@@ -81,9 +147,19 @@ def lambda_handler(event, context):
     print(requests)
     apimapping = {
         '/job':fping_logic,
+        '/api/stats': webapi_stats,
+        '/ap1i/performance': webapi_performance,
+        '/ap1i/regions': webapi_regions,
+        '/ap1i/latency': webapi_latency,
+        '/ap1i/country': webapi_country,
+        '/ap1i/city': webapi_city,
+        '/ap1i/asn': webapi_asn,
     }
     if requests['path'] not in apimapping:
-        ret = {'statusCode':404, 'result':'not found'}
+        if requests['useragent'].startswith('ELB-HealthChecker/2.0'):
+            ret = {'statusCode':200, 'result':'healthly'}
+        else:
+            ret = {'statusCode':404, 'result':'not found'}
     else:
         ret = apimapping[requests['path']](requests)
     #ret['result']['debug'] = event;
@@ -92,14 +168,14 @@ def lambda_handler(event, context):
         return {
             'statusCode': ret['statusCode'],
             'body': json.dumps(ret['result'])
-        };
+        }
     return {
         'statusCode': ret['statusCode'],
         "headers": {
             "Content-Type": "application/json"
         },
         'body': json.dumps(ret['result'])
-    };
+    }
 
 # local test
 if __name__ == "__main__":

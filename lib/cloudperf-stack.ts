@@ -275,12 +275,18 @@ export class CloudperfStack extends cdk.Stack {
       open: true
     });
 
+    listener.addTargets(stackPrefix + 'web-target', {
+      targets: [new targets.LambdaTarget(webLambda)],
+      healthCheck: { enabled: false, path: '/' },
+    });
+
     listener.addTargets(stackPrefix + 'api-target', {
       targets: [new targets.LambdaTarget(apiLambda)],
-      healthCheck: {
-        enabled: true,
-        path: '/'
-      }
+      healthCheck: { enabled: false, path: '/' },
+      priority: 10,
+      conditions: [
+        elbv2.ListenerCondition.pathPatterns(['/job*', '/api*'])
+      ]
     });
 
     // 内部域名映射
