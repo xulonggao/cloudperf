@@ -16,11 +16,13 @@ def webapi_performance(requests):
     return {
         'statusCode': 200,
         'result': [
-            {
-                "name": "00:00",
-                "latency": 45,
-                "throughput": 240
-            }
+            {"name": "00:00","latency": 45,"throughput": 240},
+            {"name": "01:00","latency": 40,"throughput": 220},
+            {"name": "02:00","latency": 43,"throughput": 270},
+            {"name": "03:00","latency": 49,"throughput": 210},
+            {"name": "04:00","latency": 51,"throughput": 290},
+            {"name": "05:00","latency": 54,"throughput": 300},
+            {"name": "06:00","latency": 49,"throughput": 305},
         ]
     }
 
@@ -28,10 +30,11 @@ def webapi_regions(requests):
     return {
         'statusCode': 200,
         'result': [
-            {
-            "name": "NA",
-            "value": 4000
-            }
+            {"name": "NA","value": 4000},
+            {"name": "UV","value": 3000},
+            {"name": "AK","value": 5000},
+            {"name": "LS","value": 4600},
+            {"name": "WE","value": 4900},
         ]
     }
 
@@ -39,8 +42,8 @@ def webapi_latency(requests):
     return {
         'statusCode': 200,
         'result': [
-            {"from": 'Mumbai', "to": 'New York', "latency": 243},
-            {"from": 'Australia', "to": 'New York', "latency": 253}
+            {"from": 'Mumbai', "to": 'New York', "latency": 243, "coordinates": {"from":[139.6917, 35.6895], "to":[-74.006, 40.7128]}},
+            {"from": 'Australia', "to": 'New York', "latency": 253, "coordinates": {"from":[-0.1276, 51.5074], "to":[-74.006, 40.7128]}}
         ]
     }
 
@@ -148,12 +151,12 @@ def lambda_handler(event, context):
     apimapping = {
         '/job':fping_logic,
         '/api/stats': webapi_stats,
-        '/ap1i/performance': webapi_performance,
-        '/ap1i/regions': webapi_regions,
-        '/ap1i/latency': webapi_latency,
-        '/ap1i/country': webapi_country,
-        '/ap1i/city': webapi_city,
-        '/ap1i/asn': webapi_asn,
+        '/api/performance': webapi_performance,
+        '/api/regions': webapi_regions,
+        '/api/latency': webapi_latency,
+        '/api/country': webapi_country,
+        '/api/city': webapi_city,
+        '/api/asn': webapi_asn,
     }
     if requests['path'] not in apimapping:
         if requests['useragent'].startswith('ELB-HealthChecker/2.0'):
