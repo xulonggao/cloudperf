@@ -26,7 +26,7 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -140,6 +140,22 @@ export default function NetworkSearch() {
         } catch (error) {
             console.error('Error fetching performance data:', error);
         }
+    };
+
+    // Calculate map bounds based on all markers
+    const getBounds = () => {
+        if (!performanceData) return [[0, 0], [0, 0]];
+        const points = [
+            ...performanceData.sourceLocations.map(loc => [loc.latitude, loc.longitude]),
+            ...performanceData.destLocations.map(loc => [loc.latitude, loc.longitude])
+        ];
+        if (points.length === 0) return [[0, 0], [0, 0]];
+        const lats = points.map(p => p[0]);
+        const lons = points.map(p => p[1]);
+        return [
+            [Math.min(...lats), Math.min(...lons)],
+            [Math.max(...lats), Math.max(...lons)]
+        ];
     };
 
     return (
@@ -379,14 +395,56 @@ export default function NetworkSearch() {
                                 </Typography>
                                 <Box sx={{ height: 400 }}>
                                     <MapContainer
-                                        center={[0, 0]}
-                                        zoom={2}
+                                        bounds={getBounds()}
                                         style={{ height: '100%', width: '100%' }}
                                     >
                                         <TileLayer
                                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                         />
+                                        {/* Source ASNs */}
+                                        {performanceData.sourceLocations.map((loc) => (
+                                            <Marker
+                                                key={`src-${loc.cityId}`}
+                                                position={[loc.latitude, loc.longitude]}
+                                            >
+                                                <Popup>
+                                                    Source ASN: {loc.asn}<br />
+                                                    {loc.cityId}
+                                                </Popup>
+                                            </Marker>
+                                        ))}
+                                        {/* Destination ASNs */}
+                                        {performanceData.destLocations.map((loc) => (
+                                            <Marker
+                                                key={`dst-${loc.cityId}`}
+                                                position={[loc.latitude, loc.longitude]}
+                                            >
+                                                <Popup>
+                                                    Destination ASN: {loc.asn}<br />
+                                                    {loc.cityId}
+                                                </Popup>
+                                            </Marker>
+                                        ))}
+                                        {/* Lines connecting source to destination with latency */}
+                                        {performanceData.latencyData.map(data => (
+                                            <Polyline
+                                                key={`${data.sourceCityId}-${data.destCityId}`}
+                                                positions={[
+                                                    [data.sourceLat, data.sourceLon],
+                                                    [data.destLat, data.destLon]
+                                                ]}
+                                                color="#1976d2"
+                                                weight={2}
+                                                opacity={0.5}
+                                            >
+                                                <Popup>
+                                                    Source: {data.sourceAsn}<br />
+                                                    Destination: {data.destAsn}<br />
+                                                    Latency: {data.latency}ms
+                                                </Popup>
+                                            </Polyline>
+                                        ))}
                                     </MapContainer>
                                 </Box>
                             </Paper>

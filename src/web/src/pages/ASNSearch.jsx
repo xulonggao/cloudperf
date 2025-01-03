@@ -26,6 +26,17 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import SaveIcon from '@mui/icons-material/Save';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for Leaflet marker icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 export default function ASNSearch() {
     const [filter, setFilter] = useState('');
@@ -84,6 +95,17 @@ export default function ASNSearch() {
         } catch (err) {
             setError('An error occurred while saving');
         }
+    };
+
+    // Calculate map bounds based on all markers
+    const getBounds = () => {
+        if (results.length === 0) return [[0, 0], [0, 0]];
+        const lats = results.map(r => r.latitude);
+        const lons = results.map(r => r.longitude);
+        return [
+            [Math.min(...lats), Math.min(...lons)],
+            [Math.max(...lats), Math.max(...lons)]
+        ];
     };
 
     return (
@@ -176,29 +198,54 @@ export default function ASNSearch() {
                                 Save as Set
                             </Button>
                         </Box>
+
+                        <Box sx={{ mt: 3, height: 400 }}>
+                            <MapContainer
+                                bounds={getBounds()}
+                                style={{ height: '100%', width: '100%' }}
+                            >
+                                <TileLayer
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                />
+                                {results.map((result) => (
+                                    <Marker
+                                        key={result.cityId}
+                                        position={[result.latitude, result.longitude]}
+                                    >
+                                        <Popup>
+                                            {result.asn}<br />
+                                            {result.cityId}
+                                        </Popup>
+                                    </Marker>
+                                ))}
+                            </MapContainer>
+                        </Box>
                     </>
                 )}
-
-                <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Save City Set</DialogTitle>
-                    <DialogContent>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            label="Set Name"
-                            fullWidth
-                            value={setName}
-                            onChange={(e) => setSetName(e.target.value)}
-                        />
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSaveSet} disabled={!setName.trim()}>
-                            Save
-                        </Button>
-                    </DialogActions>
-                </Dialog>
             </Paper>
+
+            <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    Save City Set
+                </DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Set Name"
+                        fullWidth
+                        value={setName}
+                        onChange={(e) => setSetName(e.target.value)}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSaveSet} disabled={!setName.trim()}>
+                        Save
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }

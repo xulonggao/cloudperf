@@ -124,7 +124,43 @@ export function startMockServer() {
             this.get("/performance", (schema, request) => {
                 const src = request.queryParams.src?.split(',') || [];
                 const dist = request.queryParams.dist?.split(',') || [];
-                return mockPerformanceData;
+
+                // Generate location data for each cityId
+                const sourceLocations = src.map(cityId => ({
+                    cityId,
+                    asn: cityId.split('-')[2],
+                    latitude: 37.7749 + Math.random() * 10,
+                    longitude: -122.4194 + Math.random() * 10
+                }));
+
+                const destLocations = dist.map(cityId => ({
+                    cityId,
+                    asn: cityId.split('-')[2],
+                    latitude: 40.7128 + Math.random() * 10,
+                    longitude: -74.0060 + Math.random() * 10
+                }));
+
+                // Generate latency data for each source-destination pair
+                const latencyData = sourceLocations.flatMap(source =>
+                    destLocations.map(dest => ({
+                        sourceCityId: source.cityId,
+                        sourceAsn: source.asn,
+                        sourceLat: source.latitude,
+                        sourceLon: source.longitude,
+                        destCityId: dest.cityId,
+                        destAsn: dest.asn,
+                        destLat: dest.latitude,
+                        destLon: dest.longitude,
+                        latency: Math.floor(Math.random() * 100 + 20)
+                    }))
+                );
+
+                return {
+                    ...mockPerformanceData,
+                    sourceLocations,
+                    destLocations,
+                    latencyData
+                };
             });
 
             // City sets
