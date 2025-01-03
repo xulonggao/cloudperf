@@ -20,7 +20,12 @@ const cidr = '10.0.0.0/16';
 
 export class CloudperfStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+    super(scope, id, {
+      ...props,
+      env: {
+        region: process.env.CDK_DEFAULT_REGION || 'us-east-1', // 指定默认区域
+      }
+    });
 
     // 为整个Stack添加标签
     cdk.Tags.of(this).add('CostCenter', stackPrefix + 'stack');
@@ -32,6 +37,25 @@ export class CloudperfStack extends cdk.Stack {
       natGateways: 1
     });
     const privateSubnetIds = vpc.privateSubnets.map(subnet => subnet.subnetId);
+
+    // 创建 日志桶
+    // 创建 S3 存储桶用于存储访问日志
+    const logBucket = new s3.Bucket(this, 'log-', {
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // 仅用于测试，生产环境建议 RETAIN
+      autoDeleteObjects: true, // 仅用于测试
+      // 配置生命周期规则
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.days(30),
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INTELLIGENT_TIERING,
+              transitionAfter: cdk.Duration.days(3)
+            }
+          ]
+        }
+      ]
+    });
 
     // 创建 内网资源访问的安全组
     const sg = new ec2.SecurityGroup(this, 'int-sg', {
@@ -269,6 +293,7 @@ export class CloudperfStack extends cdk.Stack {
       internetFacing: true,
       vpcSubnets: { subnets: vpc.publicSubnets }
     });
+    alb.logAccessLogs(logBucket, 'alb-logs');
 
     const listener = alb.addListener(stackPrefix + 'api-listener', {
       port: 80,
@@ -288,6 +313,21 @@ export class CloudperfStack extends cdk.Stack {
         elbv2.ListenerCondition.pathPatterns(['/job*', '/api*'])
       ]
     });
+
+    // 阻止直接对外措施
+    listener.addAction(stackPrefix + 'disable-root', {
+      priority: 20,
+      conditions: [elbv2.ListenerCondition.pathPatterns(['/', '/index.html'])],
+      action: elbv2.ListenerAction.fixedResponse(403, { contentType: 'text/plain', messageBody: 'Forbidden' })
+    });
+
+    const albLogDeliveryPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['s3:PutObject'],
+      resources: [`${logBucket.bucketArn}/alb-logs/*`],
+      principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')]
+    });
+    logBucket.addToResourcePolicy(albLogDeliveryPolicy);
 
     // 内部域名映射
     const hostedZone = new route53.PrivateHostedZone(this, 'vpc', {
