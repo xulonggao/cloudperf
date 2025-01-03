@@ -1,137 +1,158 @@
-import { createServer, Response } from "miragejs"
+import { createServer, Response } from "miragejs";
 
-// Sample data generators
-const generateCountries = () => [
-    "United States", "China", "Japan", "Germany", "United Kingdom",
-    "France", "India", "Canada", "Brazil", "Australia"
+// Mock data
+const mockCountries = [
+    { code: "US", name: "United States" },
+    { code: "CN", name: "China" },
+    { code: "JP", name: "Japan" },
+    { code: "GB", name: "United Kingdom" },
+    { code: "DE", name: "Germany" }
 ];
 
-const generateCities = () => [
-    "New York", "Tokyo", "London", "Paris", "Shanghai",
-    "Hong Kong", "Singapore", "Sydney", "Mumbai", "Toronto"
-];
-
-const generateAsns = () => [
-    "AS7922 Comcast", "AS3356 Level 3", "AS701 Verizon",
-    "AS2914 NTT", "AS6939 Hurricane Electric",
-    "AS4134 China Telecom", "AS9808 China Mobile",
-    "AS20940 Akamai", "AS16509 Amazon", "AS15169 Google"
-];
-
-// City coordinates for the map
-const cityCoordinates = {
-    "New York": [-74.006, 40.7128],
-    "Tokyo": [139.6917, 35.6895],
-    "London": [-0.1276, 51.5074],
-    "Paris": [2.3522, 48.8566],
-    "Shanghai": [121.4737, 31.2304],
-    "Hong Kong": [114.1694, 22.3193],
-    "Singapore": [103.8198, 1.3521],
-    "Sydney": [151.2093, -33.8688],
-    "Mumbai": [72.8777, 19.0760],
-    "Toronto": [-79.3832, 43.6532]
+const mockCities = {
+    "US": [
+        { id: "US-NYC", name: "New York", lat: 40.7128, lon: -74.006 },
+        { id: "US-SFO", name: "San Francisco", lat: 37.7749, lon: -122.4194 }
+    ],
+    "CN": [
+        { id: "CN-SHA", name: "Shanghai", lat: 31.2304, lon: 121.4737 },
+        { id: "CN-BEJ", name: "Beijing", lat: 39.9042, lon: 116.4074 }
+    ]
 };
 
-const filterData = (data, query) => {
+const mockAsns = {
+    "US": {
+        "US-NYC": [
+            { id: "AS7922", name: "Comcast", cityId: "US-NYC-7922" },
+            { id: "AS3356", name: "Level 3", cityId: "US-NYC-3356" }
+        ],
+        "US-SFO": [
+            { id: "AS16509", name: "Amazon", cityId: "US-SFO-16509" },
+            { id: "AS15169", name: "Google", cityId: "US-SFO-15169" }
+        ]
+    }
+};
+
+const mockCitySets = [
+    { id: 1, name: "US East Coast", cityIds: ["US-NYC-7922", "US-NYC-3356"] },
+    { id: 2, name: "US West Coast", cityIds: ["US-SFO-16509", "US-SFO-15169"] }
+];
+
+const mockPerformanceData = {
+    samples: 1000,
+    avgLatency: 45,
+    medianLatency: 42,
+    p70Latency: 50,
+    timeSeriesData: Array(7).fill().map((_, i) => ({
+        date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        avgLatency: Math.floor(Math.random() * 20 + 35)
+    })),
+    asnData: [
+        { asn: "AS7922", avgLatency: 42 },
+        { asn: "AS3356", avgLatency: 48 }
+    ],
+    cityData: [
+        { city: "New York", avgLatency: 45 },
+        { city: "San Francisco", avgLatency: 55 }
+    ]
+};
+
+const filterData = (data, query = '') => {
     if (!query) return data;
     const lowerQuery = query.toLowerCase();
     return data.filter(item =>
-        item.toLowerCase().includes(lowerQuery)
+        item.name.toLowerCase().includes(lowerQuery)
     );
 };
 
 export function startMockServer() {
-    console.log('Starting mock server...');
-
     return createServer({
-        seeds(server) {
-            console.log('Seeding initial data...');
-        },
-
         routes() {
-            this.namespace = "api"
+            this.namespace = "api";
 
-            this.get("/stats", () => {
-                console.log('Mock server: Handling /stats request');
-                const data = {
-                    activeNodes: Math.floor(Math.random() * 100 + 200),
-                    avgLatency: `${Math.floor(Math.random() * 20 + 30)}ms`,
-                    networkStatus: `${(Math.random() * 2 + 97).toFixed(1)}%`,
-                    regions: Math.floor(Math.random() * 5 + 10)
+            // Authentication
+            this.post("/login", (schema, request) => {
+                const { username, password } = JSON.parse(request.requestBody);
+                if (username === "admin" && password === "admin") {
+                    return { token: "mock-jwt-token" };
+                }
+                return new Response(401, {}, { error: "Invalid credentials" });
+            });
+
+            // Status endpoint
+            this.get("/status", () => ({
+                activeNodes: Math.floor(Math.random() * 100 + 200),
+                avgLatency: Math.floor(Math.random() * 20 + 30),
+                uptime: (Math.random() * 2 + 97).toFixed(1),
+                lastUpdate: new Date().toISOString()
+            }));
+
+            // IP info lookup
+            this.get("/ipinfo", (schema, request) => {
+                const ip = request.queryParams.ip;
+                return {
+                    ip,
+                    asn: "AS15169",
+                    country: "US",
+                    region: "California",
+                    asnType: "Content",
+                    ipRange: ["2.3.4.0", "2.3.4.255"],
+                    cityId: "US-SFO-15169",
+                    latitude: 37.7749,
+                    longitude: -122.4194
                 };
-                console.log('Mock server: Returning stats data:', data);
-                return data;
-            })
+            });
 
-            this.get("/performance", (schema, request) => {
-                console.log('Mock server: Handling /performance request');
-                const range = request.queryParams.range || '24h';
-                const dataPoints = range === '24h' ? 24 : 12;
-
-                const data = [...Array(dataPoints)].map((_, i) => ({
-                    name: `${i}:00`,
-                    latency: Math.floor(Math.random() * 300 + 100),
-                    throughput: Math.floor(Math.random() * 800 + 200)
-                }));
-                console.log('Mock server: Returning performance data:', data);
-                return data;
-            })
-
-            this.get("/regions", () => {
-                console.log('Mock server: Handling /regions request');
-                const data = [
-                    { name: "NA", value: Math.floor(Math.random() * 2000 + 3000) },
-                    { name: "EU", value: Math.floor(Math.random() * 1500 + 2500) },
-                    { name: "Asia", value: Math.floor(Math.random() * 1000 + 2000) },
-                    { name: "SA", value: Math.floor(Math.random() * 500 + 1000) },
-                    { name: "Africa", value: Math.floor(Math.random() * 300 + 500) }
+            // ASN info lookup
+            this.get("/asninfo", (schema, request) => {
+                const filter = request.queryParams.filter;
+                return [
+                    {
+                        asn: "AS16509",
+                        country: "US",
+                        region: "Virginia",
+                        asnType: "Cloud",
+                        ipRange: ["3.2.34.0", "3.2.34.255"],
+                        cityId: "US-IAD-16509",
+                        latitude: 38.9519,
+                        longitude: -77.4480
+                    }
                 ];
-                console.log('Mock server: Returning regions data:', data);
-                return data;
-            })
+            });
 
-            this.get("/latency", (schema, request) => {
-                console.log('Mock server: Handling /latency request');
-                const targetCity = request.queryParams.city || 'New York';
-                const cities = generateCities();
+            // Performance data
+            this.get("/performance", (schema, request) => {
+                const src = request.queryParams.src?.split(',') || [];
+                const dist = request.queryParams.dist?.split(',') || [];
+                return mockPerformanceData;
+            });
 
-                // Generate latency data for up to 10 random cities
-                const data = cities
-                    .filter(city => city !== targetCity)
-                    .sort(() => Math.random() - 0.5)
-                    .slice(0, 10)
-                    .map(city => ({
-                        from: city,
-                        to: targetCity,
-                        latency: Math.floor(Math.random() * 200 + 50),
-                        coordinates: {
-                            from: cityCoordinates[city],
-                            to: cityCoordinates[targetCity]
-                        }
-                    }));
+            // City sets
+            this.get("/cityset", () => mockCitySets);
 
-                console.log('Mock server: Returning latency data:', data);
-                return data;
-            })
+            this.post("/cityset", (schema, request) => {
+                const data = JSON.parse(request.requestBody);
+                const newSet = {
+                    id: mockCitySets.length + 1,
+                    ...data
+                };
+                mockCitySets.push(newSet);
+                return newSet;
+            });
 
-            // Filter endpoints
-            this.get("/country", (schema, request) => {
-                const query = request.queryParams.q || '';
-                const data = filterData(generateCountries(), query);
-                return data;
-            })
+            // Location data
+            this.get("/country", () => mockCountries);
 
             this.get("/city", (schema, request) => {
-                const query = request.queryParams.q || '';
-                const data = filterData(generateCities(), query);
-                return data;
-            })
+                const country = request.queryParams.country;
+                return mockCities[country] || [];
+            });
 
             this.get("/asn", (schema, request) => {
-                const query = request.queryParams.q || '';
-                const data = filterData(generateAsns(), query);
-                return data;
-            })
-        },
-    })
+                const country = request.queryParams.country;
+                const city = request.queryParams.city;
+                return country && city ? mockAsns[country]?.[city] || [] : [];
+            });
+        }
+    });
 }

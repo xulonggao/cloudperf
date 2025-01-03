@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { styled } from '@mui/material/styles';
+import { Routes, Route, useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import MuiDrawer from '@mui/material/Drawer';
 import MuiAppBar from '@mui/material/AppBar';
@@ -8,18 +9,18 @@ import List from '@mui/material/List';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import DashboardIcon from '@mui/icons-material/Dashboard';
+import SearchIcon from '@mui/icons-material/Search';
+import StorageIcon from '@mui/icons-material/Storage';
 import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import SettingsIcon from '@mui/icons-material/Settings';
-import Dashboard from './Dashboard';
-import FilterToolbar from './FilterToolbar';
+import GroupWorkIcon from '@mui/icons-material/GroupWork';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 const drawerWidth = 240;
 
@@ -68,14 +69,48 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
 );
 
 const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon /> },
-    { text: 'Network Status', icon: <NetworkCheckIcon /> },
-    { text: 'Performance', icon: <TimelineIcon /> },
-    { text: 'Settings', icon: <SettingsIcon /> },
+    { text: 'IP Search', path: '/ipsearch', icon: <SearchIcon /> },
+    { text: 'ASN Search', path: '/asnsearch', icon: <StorageIcon /> },
+    { text: 'Network Performance', path: '/search', icon: <NetworkCheckIcon /> },
+    { text: 'City Sets', path: '/cityset', icon: <GroupWorkIcon /> },
 ];
 
 export default function Layout() {
     const [open, setOpen] = useState(true);
+    const [status, setStatus] = useState(null);
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        // Check authentication
+        const token = document.cookie.split('; ').find(row => row.startsWith('token='));
+        if (!token && location.pathname !== '/login') {
+            navigate('/login');
+        }
+
+        // Fetch status every 10 seconds
+        const fetchStatus = async () => {
+            try {
+                const response = await fetch('/api/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    setStatus(data);
+                }
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        };
+
+        fetchStatus();
+        const interval = setInterval(fetchStatus, 10000);
+        return () => clearInterval(interval);
+    }, [location, navigate]);
+
+    const handleLogout = () => {
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        navigate('/login');
+    };
+
     const toggleDrawer = () => {
         setOpen(!open);
     };
@@ -113,7 +148,31 @@ export default function Layout() {
                             CloudPerf Dashboard
                         </Typography>
                     </Box>
-                    <FilterToolbar />
+                    {status && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flex: 1, justifyContent: 'center' }}>
+                            <Typography variant="body2">
+                                Active Nodes: {status.activeNodes}
+                            </Typography>
+                            <Typography variant="body2">
+                                Avg Latency: {status.avgLatency}ms
+                            </Typography>
+                            <Typography variant="body2">
+                                Uptime: {status.uptime}%
+                            </Typography>
+                        </Box>
+                    )}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="body2">
+                            admin
+                        </Typography>
+                        <Button
+                            color="inherit"
+                            onClick={handleLogout}
+                            startIcon={<LogoutIcon />}
+                        >
+                            Logout
+                        </Button>
+                    </Box>
                 </Toolbar>
             </AppBar>
             <Drawer variant="permanent" open={open}>
@@ -134,6 +193,9 @@ export default function Layout() {
                     {menuItems.map((item) => (
                         <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
                             <ListItemButton
+                                component={Link}
+                                to={item.path}
+                                selected={location.pathname === item.path}
                                 sx={{
                                     minHeight: 48,
                                     justifyContent: open ? 'initial' : 'center',
@@ -168,7 +230,7 @@ export default function Layout() {
                     pt: 8,
                 }}
             >
-                <Dashboard />
+                <Outlet />
             </Box>
         </Box>
     );

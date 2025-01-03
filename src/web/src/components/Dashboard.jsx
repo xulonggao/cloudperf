@@ -7,6 +7,7 @@ import PublicIcon from '@mui/icons-material/Public';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { fetchDashboardStats, fetchPerformanceData, fetchRegionalData, fetchLatencyData } from '../services/api';
 import WorldMap from './WorldMap';
+import FilterToolbar from './FilterToolbar';
 
 function StatsCard({ title, value, icon: Icon, color, isLoading, error }) {
     return (
@@ -74,12 +75,13 @@ export default function Dashboard() {
     const [performanceData, setPerformanceData] = useState([]);
     const [regionalData, setRegionalData] = useState([]);
     const [latencyData, setLatencyData] = useState([]);
-    const [selectedCity, setSelectedCity] = useState('New York'); // Default city
+    const [selectedCityIds, setSelectedCityIds] = useState([]);
+
     const [loading, setLoading] = useState({
-        stats: true,
-        performance: true,
-        regional: true,
-        latency: true
+        stats: false,
+        performance: false,
+        regional: false,
+        latency: false
     });
     const [error, setError] = useState({
         stats: null,
@@ -88,11 +90,19 @@ export default function Dashboard() {
         latency: null
     });
 
+    // Subscribe to FilterToolbar's ASN selection changes
+    const handleAsnSelectionChange = useCallback((selectedAsns) => {
+        // Extract unique cityIds from selected ASNs
+        const cityIds = Array.from(new Set(selectedAsns.map(asn => asn.cityId)));
+        setSelectedCityIds(cityIds);
+    }, []);
+
     const fetchLatency = useCallback(async () => {
+        if (!selectedCityIds.length) return;
         try {
             setLoading(prev => ({ ...prev, latency: true }));
             setError(prev => ({ ...prev, latency: null }));
-            const data = await fetchLatencyData(selectedCity);
+            const data = await fetchLatencyData(selectedCityIds);
             setLatencyData(data || []);
         } catch (err) {
             console.error('Error fetching latency data:', err);
@@ -100,58 +110,114 @@ export default function Dashboard() {
         } finally {
             setLoading(prev => ({ ...prev, latency: false }));
         }
-    }, [selectedCity]);
+    }, [selectedCityIds]);
 
     const fetchData = useCallback(async () => {
+        if (!selectedCityIds.length) {
+            // Clear all data and loading states when no cities are selected
+            setStats(null);
+            setPerformanceData([]);
+            setRegionalData([]);
+            setLatencyData([]);
+            setLoading({
+                stats: false,
+                performance: false,
+                regional: false,
+                latency: false
+            });
+            setError({
+                stats: null,
+                performance: null,
+                regional: null,
+                latency: null
+            });
+            return;
+        }
+
+        console.log('Fetching data for cities:', selectedCityIds);
+
+        // Set all loading states to true at once
+        setLoading({
+            stats: true,
+            performance: true,
+            regional: true,
+            latency: true
+        });
+
         try {
-            setLoading(prev => ({ ...prev, stats: true }));
-            const statsData = await fetchDashboardStats();
+            // Fetch all data in parallel
+            const [statsData, perfData, regData] = await Promise.all([
+                fetchDashboardStats(),
+                fetchPerformanceData('24h', selectedCityIds),
+                fetchRegionalData(selectedCityIds)
+            ]);
+
+            console.log('Received data:', { statsData, perfData, regData });
+
+            // Update all data states
             setStats(statsData);
-        } catch (err) {
-            setError(prev => ({ ...prev, stats: err.message }));
-        } finally {
-            setLoading(prev => ({ ...prev, stats: false }));
-        }
-
-        try {
-            setLoading(prev => ({ ...prev, performance: true }));
-            const perfData = await fetchPerformanceData();
             setPerformanceData(perfData);
-        } catch (err) {
-            setError(prev => ({ ...prev, performance: err.message }));
-        } finally {
-            setLoading(prev => ({ ...prev, performance: false }));
-        }
-
-        try {
-            setLoading(prev => ({ ...prev, regional: true }));
-            const regData = await fetchRegionalData();
             setRegionalData(regData);
+
+            // Clear any previous errors
+            setError({
+                stats: null,
+                performance: null,
+                regional: null,
+                latency: null
+            });
         } catch (err) {
-            setError(prev => ({ ...prev, regional: err.message }));
+            console.error('Error fetching dashboard data:', err);
+            // Set error state for all components
+            setError({
+                stats: err.message,
+                performance: err.message,
+                regional: err.message,
+                latency: err.message
+            });
+            // Clear data on error
+            setStats(null);
+            setPerformanceData([]);
+            setRegionalData([]);
         } finally {
-            setLoading(prev => ({ ...prev, regional: false }));
+            // Set loading states to false for completed requests
+            setLoading(prev => ({
+                ...prev,
+                stats: false,
+                performance: false,
+                regional: false
+            }));
         }
 
-        // Fetch latency data
+        // Fetch latency data separately as it's used by the WorldMap component
         await fetchLatency();
-    }, [fetchLatency]);
+    }, [fetchLatency, selectedCityIds]);
 
     useEffect(() => {
-        fetchData();
-        // Set up polling interval
-        const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
-
-        return () => clearInterval(interval);
-    }, [fetchData]);
-
-    // Fetch new latency data when selected city changes
-    useEffect(() => {
-        fetchLatency();
-    }, [selectedCity, fetchLatency]);
+        if (selectedCityIds.length) {
+            fetchData();
+            // Set up polling interval
+            const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+            return () => clearInterval(interval);
+        } else {
+            // Clear data when no cities are selected
+            setStats(null);
+            setPerformanceData([]);
+            setRegionalData([]);
+            setLatencyData([]);
+            setError({
+                stats: null,
+                performance: null,
+                regional: null,
+                latency: null
+            });
+        }
+    }, [fetchData, selectedCityIds]);
 
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            <FilterToolbar onAsnSelectionChange={handleAsnSelectionChange} />
+
             <Grid container spacing={3}>
                 {/* Stats Cards */}
                 <Grid item xs={12} sm={6} md={3}>
@@ -267,7 +333,7 @@ export default function Dashboard() {
                             Error loading latency data: {error.latency}
                         </Alert>
                     ) : (
-                        <WorldMap data={latencyData} selectedCity={selectedCity} />
+                        <WorldMap data={latencyData} selectedCityIds={selectedCityIds} />
                     )}
                 </Grid>
             </Grid>
