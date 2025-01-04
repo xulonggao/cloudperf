@@ -204,6 +204,7 @@ export class CloudperfStack extends cdk.Stack {
     fpingQueueLambda.addEventSource(eventSource);
 
     // 对外 web 函数
+    // https://github.com/awslabs/aws-lambda-web-adapter/tree/main/examples/nginx-zip
     const lambdaRoleWeb = new iam.Role(this, 'role-web', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });

@@ -70,6 +70,19 @@ def webapi_asn(requests):
     }
 
 # country=CN
+def webapi_country(requests):
+    return {
+        'statusCode': 200,
+        'result': [
+            {"code": "US","name": "United States"},
+            {"code": "CN","name": "China"},
+            {"code": "JP","name": "Japan"},
+            {"code": "GB","name": "United Kingdom"},
+            {"code": "DE","name": "Germany"}
+        ]
+    }
+
+# country=CN
 def webapi_city(requests):
     return {
         'statusCode': 200,
@@ -233,6 +246,7 @@ def lambda_handler(event, context):
         '/api/ipinfo': webapi_ipinfo,
         '/api/asninfo': webapi_asninfo,
         '/api/cityset': webapi_cityset,
+        '/api/country': webapi_country,
         '/api/city': webapi_city,
         '/api/asn': webapi_asn,
         '/api/performance': webapi_performance,
