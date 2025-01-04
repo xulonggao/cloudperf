@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fetchIPInfo } from '../services/api';
 import {
     Box,
     Container,
@@ -32,17 +33,11 @@ export default function IPSearch() {
 
     const handleSearch = async () => {
         try {
-            const response = await fetch(`/api/ipinfo?ip=${encodeURIComponent(ip)}`);
-            if (response.ok) {
-                const data = await response.json();
-                setResult(data);
-                setError('');
-            } else {
-                setError('Failed to fetch IP information');
-                setResult(null);
-            }
+            const data = await fetchIPInfo(ip);
+            setResult(data);
+            setError('');
         } catch (err) {
-            setError('An error occurred while fetching data');
+            setError(err.message || 'An error occurred while fetching data');
             setResult(null);
         }
     };

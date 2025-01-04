@@ -59,6 +59,15 @@ def webapi_performance(requests):
         }
     }
 
+# {username: "admin", password: "admin"}
+def webapi_login(requests):
+    return {
+        'statusCode': 200,
+        'result': {
+            "token": "mock-jwt-token"
+        }
+    }
+
 # country=US&city=US-NYC
 def webapi_asn(requests):
     return {
@@ -93,8 +102,9 @@ def webapi_city(requests):
     }
 
 # get
-# post {"name": "tes","cityIds": ["test"]}
-# delete
+# post {name: "test", cityIds: ["US-IAD-16509", "US-IAD-16510"]}
+# put {id: 1, name: "US East Coast1", cityIds: ["US-NYC-7922", "US-NYC-3356"]}
+# delete /api/cityset/2 
 def webapi_cityset(requests):
     return {
         'statusCode': 200,
@@ -105,6 +115,7 @@ def webapi_cityset(requests):
         ]
     }
 
+# ip=2.3.4.5
 def webapi_ipinfo(requests):
     return {
         'statusCode': 200,
@@ -124,6 +135,7 @@ def webapi_ipinfo(requests):
         }
     }
 
+# filter=amazon
 def webapi_asninfo(requests):
     return {
         'statusCode': 200,
@@ -250,6 +262,7 @@ def lambda_handler(event, context):
         '/api/city': webapi_city,
         '/api/asn': webapi_asn,
         '/api/performance': webapi_performance,
+        '/api/login': webapi_login,
     }
     if requests['path'] not in apimapping:
         if requests['useragent'].startswith('ELB-HealthChecker/2.0'):

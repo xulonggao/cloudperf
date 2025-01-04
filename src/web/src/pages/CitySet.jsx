@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchCitySets, createCitySet, updateCitySet, deleteCitySet } from '../services/api';
 import {
     Box,
     Container,
@@ -32,23 +33,19 @@ export default function CitySet() {
     const [cityIds, setCityIds] = useState('');
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        fetchCitySets();
-    }, []);
-
-    const fetchCitySets = async () => {
+    const loadCitySets = async () => {
         try {
-            const response = await fetch('/api/cityset');
-            if (response.ok) {
-                const data = await response.json();
-                setCitySets(data);
-            } else {
-                setError('Failed to fetch city sets');
-            }
+            const data = await fetchCitySets();
+            setCitySets(data);
+            setError('');
         } catch (err) {
-            setError('An error occurred while fetching city sets');
+            setError(err.message || 'An error occurred while fetching city sets');
         }
     };
+
+    useEffect(() => {
+        loadCitySets();
+    }, []);
 
     const handleOpenDialog = (set = null) => {
         if (set) {
@@ -74,27 +71,17 @@ export default function CitySet() {
     const handleSave = async () => {
         try {
             const cityIdArray = cityIds.split(',').map(id => id.trim()).filter(Boolean);
-            const data = {
-                name: setName,
-                cityIds: cityIdArray
-            };
 
-            const response = await fetch('/api/cityset', {
-                method: editingSet ? 'PUT' : 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            });
-
-            if (response.ok) {
-                handleCloseDialog();
-                fetchCitySets();
+            if (editingSet) {
+                await updateCitySet(editingSet.id, setName, cityIdArray);
             } else {
-                setError('Failed to save city set');
+                await createCitySet(setName, cityIdArray);
             }
+
+            handleCloseDialog();
+            loadCitySets();
         } catch (err) {
-            setError('An error occurred while saving');
+            setError(err.message || 'An error occurred while saving');
         }
     };
 
@@ -104,17 +91,10 @@ export default function CitySet() {
         }
 
         try {
-            const response = await fetch(`/api/cityset/${id}`, {
-                method: 'DELETE',
-            });
-
-            if (response.ok) {
-                fetchCitySets();
-            } else {
-                setError('Failed to delete city set');
-            }
+            await deleteCitySet(id);
+            loadCitySets();
         } catch (err) {
-            setError('An error occurred while deleting');
+            setError(err.message || 'An error occurred while deleting');
         }
     };
 

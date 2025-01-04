@@ -58,13 +58,13 @@ export const fetchDashboardStats = async () => {
     }
 };
 
-export const fetchPerformanceData = async (timeRange = '24h', cityIds = []) => {
+export const fetchPerformanceData = async (srcCityIds = [], destCityIds = []) => {
     try {
         const params = new URLSearchParams();
-        params.append('range', timeRange);
-        if (cityIds.length) params.append('cityIds', cityIds.join(','));
+        if (srcCityIds.length) params.append('src', srcCityIds.join(','));
+        if (destCityIds.length) params.append('dist', destCityIds.join(','));
         const response = await fetchWithTimeout(`${API_BASE_URL}/performance?${params.toString()}`);
-        return handleArrayResponse(response);
+        return handleJsonResponse(response);
     } catch (error) {
         console.error('Error fetching performance data:', error);
         throw error;
@@ -126,6 +126,100 @@ export const fetchCities = async (countryId = '', query = '') => {
         if (error.name === 'AbortError') {
             throw new Error('Request timeout');
         }
+        throw error;
+    }
+};
+
+export const fetchCitySets = async () => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/cityset`);
+        return handleArrayResponse(response);
+    } catch (error) {
+        console.error('Error fetching city sets:', error);
+        throw error;
+    }
+};
+
+export const fetchIPInfo = async (ip) => {
+    try {
+        const params = new URLSearchParams();
+        params.append('ip', ip);
+        const response = await fetchWithTimeout(`${API_BASE_URL}/ipinfo?${params.toString()}`);
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error fetching IP info:', error);
+        throw error;
+    }
+};
+
+export const fetchASNInfo = async (filter = '') => {
+    try {
+        const params = new URLSearchParams();
+        if (filter) params.append('filter', filter);
+        const response = await fetchWithTimeout(`${API_BASE_URL}/asninfo?${params.toString()}`);
+        return handleArrayResponse(response);
+    } catch (error) {
+        console.error('Error fetching ASN info:', error);
+        throw error;
+    }
+};
+
+export const createCitySet = async (name, cityIds) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/cityset`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, cityIds })
+        });
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error creating city set:', error);
+        throw error;
+    }
+};
+
+export const updateCitySet = async (id, name, cityIds) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/cityset`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id, name, cityIds })
+        });
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error updating city set:', error);
+        throw error;
+    }
+};
+
+export const deleteCitySet = async (id) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/cityset/${id}`, {
+            method: 'DELETE'
+        });
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error deleting city set:', error);
+        throw error;
+    }
+};
+
+export const login = async (username, password) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password })
+        });
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error during login:', error);
         throw error;
     }
 };

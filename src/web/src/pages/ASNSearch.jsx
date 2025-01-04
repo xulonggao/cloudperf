@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fetchASNInfo, createCitySet } from '../services/api';
 import {
     Box,
     Container,
@@ -48,18 +49,12 @@ export default function ASNSearch() {
 
     const handleSearch = async () => {
         try {
-            const response = await fetch(`/api/asninfo?filter=${encodeURIComponent(filter)}`);
-            if (response.ok) {
-                const data = await response.json();
-                setResults(data);
-                setSelected([]);
-                setError('');
-            } else {
-                setError('Failed to fetch ASN information');
-                setResults([]);
-            }
+            const data = await fetchASNInfo(filter);
+            setResults(data);
+            setSelected([]);
+            setError('');
         } catch (err) {
-            setError('An error occurred while fetching data');
+            setError(err.message || 'An error occurred while fetching data');
             setResults([]);
         }
     };
@@ -74,26 +69,13 @@ export default function ASNSearch() {
 
     const handleSaveSet = async () => {
         try {
-            const response = await fetch('/api/cityset', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: setName,
-                    cityIds: selected
-                }),
-            });
-
-            if (response.ok) {
-                setDialogOpen(false);
-                setSetName('');
-                setSelected([]);
-            } else {
-                setError('Failed to save city set');
-            }
+            await createCitySet(setName, selected);
+            setDialogOpen(false);
+            setSetName('');
+            setSelected([]);
+            setError('');
         } catch (err) {
-            setError('An error occurred while saving');
+            setError(err.message || 'An error occurred while saving');
         }
     };
 

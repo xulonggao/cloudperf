@@ -8,8 +8,6 @@ import IPSearch from './pages/IPSearch';
 import ASNSearch from './pages/ASNSearch';
 import NetworkSearch from './pages/NetworkSearch';
 import CitySet from './pages/CitySet';
-import { startMockServer } from './mockServer';
-
 // Create theme
 const theme = createTheme({
   palette: {
@@ -34,11 +32,6 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
-  useEffect(() => {
-    // Start mock server
-    startMockServer();
-  }, []);
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

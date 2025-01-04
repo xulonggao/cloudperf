@@ -9,8 +9,8 @@ import 'leaflet/dist/leaflet.css';
 import './App.css';
 import { startMockServer } from './mockServer'
 
-// Start the mock server
-if (process.env.NODE_ENV === 'development') {
+// Start the mock server only in development
+if (import.meta.env.VITE_ENV !== 'production') {
   console.log('Initializing mock server for development...');
   startMockServer();
 }

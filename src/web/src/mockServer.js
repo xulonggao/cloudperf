@@ -190,13 +190,13 @@ export function startMockServer() {
             this.get("/country", () => mockCountries);
 
             this.get("/city", (schema, request) => {
-                const country = request.queryParams.country;
+                const country = request.queryParams.countryId;
                 return mockCities[country] || [];
             });
 
             this.get("/asn", (schema, request) => {
-                const country = request.queryParams.country;
-                const city = request.queryParams.city;
+                const country = request.queryParams.countryId;
+                const city = request.queryParams.cityId;
                 return country && city ? mockAsns[country]?.[city] || [] : [];
             });
         }

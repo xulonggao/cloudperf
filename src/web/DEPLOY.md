@@ -7,6 +7,7 @@ This guide explains how to deploy the CloudPerf dashboard in different environme
 The production build is located in the `dist` directory after running:
 ```bash
 npm run build
+cd src/web && rm -rf lambda/app/public/* && npm run build -- --mode production
 ```
 
 ## Deployment Options

@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
+    fetchCitySets,
+    fetchCountries,
+    fetchCities,
+    fetchAsns,
+    fetchPerformanceData
+} from '../services/api';
+import {
     Box,
     Container,
     Paper,
@@ -63,13 +70,9 @@ export default function NetworkSearch() {
         // Fetch city sets and countries on mount
         const fetchInitialData = async () => {
             try {
-                const [setsResponse, countriesResponse] = await Promise.all([
-                    fetch('/api/cityset'),
-                    fetch('/api/country')
-                ]);
                 const [setsData, countriesData] = await Promise.all([
-                    setsResponse.json(),
-                    countriesResponse.json()
+                    fetchCitySets(),
+                    fetchCountries()
                 ]);
                 setCitySets(setsData);
                 setCountries(countriesData);
@@ -83,8 +86,7 @@ export default function NetworkSearch() {
     // Fetch cities when country is selected
     useEffect(() => {
         if (selectedCountry) {
-            fetch(`/api/city?country=${selectedCountry}`)
-                .then(res => res.json())
+            fetchCities(selectedCountry)
                 .then(data => setCities(data))
                 .catch(error => console.error('Error fetching cities:', error));
         } else {
@@ -95,8 +97,7 @@ export default function NetworkSearch() {
     // Fetch ASNs when city is selected
     useEffect(() => {
         if (selectedCountry && selectedCity) {
-            fetch(`/api/asn?country=${selectedCountry}&city=${selectedCity}`)
-                .then(res => res.json())
+            fetchAsns(selectedCountry, selectedCity)
                 .then(data => setAsns(data))
                 .catch(error => console.error('Error fetching ASNs:', error));
         } else {
@@ -107,8 +108,7 @@ export default function NetworkSearch() {
     // Similar effects for destination selection
     useEffect(() => {
         if (destCountry) {
-            fetch(`/api/city?country=${destCountry}`)
-                .then(res => res.json())
+            fetchCities(destCountry)
                 .then(data => setDestCities(data))
                 .catch(error => console.error('Error fetching destination cities:', error));
         } else {
@@ -118,8 +118,7 @@ export default function NetworkSearch() {
 
     useEffect(() => {
         if (destCountry && destCity) {
-            fetch(`/api/asn?country=${destCountry}&city=${destCity}`)
-                .then(res => res.json())
+            fetchAsns(destCountry, destCity)
                 .then(data => setDestAsns(data))
                 .catch(error => console.error('Error fetching destination ASNs:', error));
         } else {
@@ -134,8 +133,7 @@ export default function NetworkSearch() {
         const destCityIds = selectedDestAsns.map(asn => asn.cityId);
 
         try {
-            const response = await fetch(`/api/performance?src=${srcCityIds.join(',')}&dist=${destCityIds.join(',')}`);
-            const data = await response.json();
+            const data = await fetchPerformanceData(srcCityIds, destCityIds);
             setPerformanceData(data);
         } catch (error) {
             console.error('Error fetching performance data:', error);

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { login } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -19,24 +20,12 @@ export default function Login() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                // Store token in cookie
-                document.cookie = `token=${data.token}; path=/`;
-                navigate('/search');
-            } else {
-                setError('Invalid username or password');
-            }
+            const data = await login(username, password);
+            // Store token in cookie
+            document.cookie = `token=${data.token}; path=/`;
+            navigate('/search');
         } catch (err) {
-            setError('An error occurred. Please try again.');
+            setError(err.message || 'Invalid username or password');
         }
     };
 
