@@ -116,6 +116,16 @@ export function startMockServer() {
                         cityId: "US-IAD-16509",
                         latitude: 38.9519,
                         longitude: -77.4480
+                    },
+                    {
+                        asn: "AS16510",
+                        country: "US",
+                        region: "Virginia",
+                        asnType: "Cloud",
+                        ipRange: ["3.2.35.0", "3.2.35.255"],
+                        cityId: "US-IAD-16510",
+                        latitude: 36.9519,
+                        longitude: -75.4480
                     }
                 ];
             });
