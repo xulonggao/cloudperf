@@ -8,6 +8,7 @@ import IPSearch from './pages/IPSearch';
 import ASNSearch from './pages/ASNSearch';
 import NetworkSearch from './pages/NetworkSearch';
 import CitySet from './pages/CitySet';
+import Maintenance from './pages/Maintenance';
 // Create theme
 const theme = createTheme({
   palette: {
@@ -51,6 +52,7 @@ function App() {
             <Route path="asnsearch" element={<ASNSearch />} />
             <Route path="search" element={<NetworkSearch />} />
             <Route path="cityset" element={<CitySet />} />
+            <Route path="maintenance" element={<Maintenance />} />
           </Route>
         </Routes>
       </BrowserRouter>

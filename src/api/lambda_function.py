@@ -104,7 +104,7 @@ def webapi_city(requests):
 # get
 # post {name: "test", cityIds: ["US-IAD-16509", "US-IAD-16510"]}
 # put {id: 1, name: "US East Coast1", cityIds: ["US-NYC-7922", "US-NYC-3356"]}
-# delete /api/cityset/2 
+# delete /api/cityset?id=2 
 def webapi_cityset(requests):
     return {
         'statusCode': 200,

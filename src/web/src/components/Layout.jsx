@@ -21,6 +21,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import LogoutIcon from '@mui/icons-material/Logout';
+import BuildIcon from '@mui/icons-material/Build';
 
 const drawerWidth = 240;
 
@@ -73,6 +74,7 @@ const menuItems = [
     { text: 'ASN Search', path: '/asnsearch', icon: <StorageIcon /> },
     { text: 'Network Performance', path: '/search', icon: <NetworkCheckIcon /> },
     { text: 'City Sets', path: '/cityset', icon: <GroupWorkIcon /> },
+    { text: 'Maintenance', path: '/maintenance', icon: <BuildIcon /> },
 ];
 
 export default function Layout() {

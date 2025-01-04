@@ -33,6 +33,14 @@ const mockAsns = {
     }
 };
 
+// Mock Redis storage
+const mockRedisStorage = new Map([
+    ["test:key1", "value1"],
+    ["test:key2", "value2"],
+    ["user:1", JSON.stringify({ name: "John", role: "admin" })],
+    ["counter", "42"]
+]);
+
 const mockCitySets = [
     { id: 1, name: "US East Coast", cityIds: ["US-NYC-7922", "US-NYC-3356"] },
     { id: 2, name: "US West Coast", cityIds: ["US-SFO-16509", "US-SFO-15169"] }
@@ -198,6 +206,56 @@ export function startMockServer() {
                 const country = request.queryParams.countryId;
                 const city = request.queryParams.cityId;
                 return country && city ? mockAsns[country]?.[city] || [] : [];
+            });
+            // SQL execution endpoint
+            this.post("/runsql", (schema, request) => {
+                const { sql } = JSON.parse(request.requestBody);
+                // Mock SQL execution with sample responses
+                if (sql.toLowerCase().includes("select")) {
+                    return {
+                        columns: ["id", "name", "value"],
+                        rows: [
+                            [1, "test1", 100],
+                            [2, "test2", 200],
+                        ]
+                    };
+                } else if (sql.toLowerCase().includes("insert")) {
+                    return { affectedRows: 1, insertId: 123 };
+                } else if (sql.toLowerCase().includes("update")) {
+                    return { affectedRows: 2 };
+                } else if (sql.toLowerCase().includes("delete")) {
+                    return { affectedRows: 1 };
+                } else {
+                    return { error: "Unsupported SQL operation" };
+                }
+            });
+
+            // Redis endpoints
+            this.get("/redis", (schema, request) => {
+                const key = request.queryParams.key;
+                if (!key) {
+                    return Array.from(mockRedisStorage.entries()).map(([k, v]) => ({ key: k, value: v }));
+                }
+                const value = mockRedisStorage.get(key);
+                if (value === undefined) {
+                    return new Response(404, {}, { error: "Key not found" });
+                }
+                return value;
+            });
+
+            this.put("/redis", (schema, request) => {
+                const { key, value } = JSON.parse(request.requestBody);
+                mockRedisStorage.set(key, value);
+                return { success: true };
+            });
+
+            this.delete("/redis", (schema, request) => {
+                const key = request.queryParams.key;
+                if (!mockRedisStorage.has(key)) {
+                    return new Response(404, {}, { error: "Key not found" });
+                }
+                mockRedisStorage.delete(key);
+                return { success: true };
             });
         }
     });

@@ -198,7 +198,7 @@ export const updateCitySet = async (id, name, cityIds) => {
 
 export const deleteCitySet = async (id) => {
     try {
-        const response = await fetchWithTimeout(`${API_BASE_URL}/cityset/${id}`, {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/cityset?id=${id}`, {
             method: 'DELETE'
         });
         return handleJsonResponse(response);
@@ -220,6 +220,60 @@ export const login = async (username, password) => {
         return handleJsonResponse(response);
     } catch (error) {
         console.error('Error during login:', error);
+        throw error;
+    }
+};
+
+export const executeSQL = async (sql) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/runsql`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ sql })
+        });
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error executing SQL:', error);
+        throw error;
+    }
+};
+
+export const getRedisValue = async (key) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/redis?key=${encodeURIComponent(key)}`);
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error getting Redis value:', error);
+        throw error;
+    }
+};
+
+export const setRedisValue = async (key, value) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/redis`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ key, value })
+        });
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error setting Redis value:', error);
+        throw error;
+    }
+};
+
+export const deleteRedisKey = async (key) => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/redis?key=${encodeURIComponent(key)}`, {
+            method: 'DELETE'
+        });
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error deleting Redis key:', error);
         throw error;
     }
 };
