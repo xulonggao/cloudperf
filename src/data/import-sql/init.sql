@@ -73,3 +73,11 @@ CREATE TABLE IF NOT EXISTS `statistics` (
     KEY `asn` (`asn`),
     KEY `update_time` (`update_time`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT '统计数据';
+
+CREATE TABLE IF NOT EXISTS `cityset` (
+    `id` INT UNSIGNED NOT NULL PRIMARY KEY COMMENT 'id',
+    `name` varchar(32) NOT NULL COMMENT '集合名字',
+    `cityids` varchar(512) DEFAULT NULL COMMENT 'cityid列表',
+    `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+    KEY `name` (`name`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT '城市集合';

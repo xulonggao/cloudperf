@@ -314,9 +314,16 @@ export class CloudperfStack extends cdk.Stack {
       ]
     });
 
+    // 根目录访问，只有带上参数 query=login，才允许通过
+    listener.addTargets(stackPrefix + 'frist-login', {
+      targets: [new targets.LambdaTarget(webLambda)],
+      healthCheck: { enabled: false, path: '/' },
+      priority: 20,
+      conditions: [elbv2.ListenerCondition.queryStrings([{ key: 'query', value: 'login' }])]
+    });
     // 阻止直接对外措施
     listener.addAction(stackPrefix + 'disable-root', {
-      priority: 20,
+      priority: 21,
       conditions: [elbv2.ListenerCondition.pathPatterns(['/', '/index.html'])],
       action: elbv2.ListenerAction.fixedResponse(403, { contentType: 'text/plain', messageBody: 'Forbidden' })
     });
