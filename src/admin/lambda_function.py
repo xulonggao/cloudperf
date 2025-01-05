@@ -75,6 +75,7 @@ def exec_sqlfile(sql_file):
                         with open(sql_path, 'r') as f:
                             sql_content = f.read()
                         data_layer.mysql_batch_execute(sql_content)
+                        print(f'exec_sql zipfile {file} finish.')
                         results.append(f'Executed {file}')
             
             # Cleanup
@@ -90,6 +91,7 @@ def exec_sqlfile(sql_file):
             with open(sql_file, 'r') as f:
                 sql_content = f.read()
             data_layer.mysql_batch_execute(sql_content)
+            print(f'exec_sql {sql_file} finish.')
             return {
                 'status': 200,
                 'msg': f'Executed SQL file: {sql_file}'
@@ -131,7 +133,7 @@ def lambda_handler(event, context):
                 bucket = record['s3']['bucket']['name']
                 key = record['s3']['object']['key']
                 event_name = record['eventName']
-                print(f"Processing event {event_name} for {bucket}/{key}")
+                print(f"Processing event {event_name} exec_sql for {bucket}/{key}")
                 ret = exec_sqlfile(f's3://{bucket}/{key}')
             return ret
 

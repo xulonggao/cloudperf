@@ -80,6 +80,7 @@ def mysql_batch_execute(sql: str):
         # 分割SQL语句
         sql_statements = sql.strip().split(";")
         
+        affected_rows = 0
         # 执行每条SQL语句
         for sql in sql_statements:
             sql = sql.strip()
@@ -107,7 +108,8 @@ def mysql_batch_execute(sql: str):
                             'message': '无结果返回'
                         })
                 else:
-                    print(f"影响行数: {cursor.rowcount}")
+                    affected_rows += cursor.rowcount
+                    # print(f"影响行数: {cursor.rowcount}")
                     # 非查询语句
                     results.append({
                         'sql': sql,
@@ -115,6 +117,8 @@ def mysql_batch_execute(sql: str):
                         'affected_rows': cursor.rowcount
                     })
                 conn.commit()
+        if affected_rows > 0:
+            print(f"共影响行数: {affected_rows}")
 
     except Exception as e:
         print(f"{sql}\n错误: {str(e)}")

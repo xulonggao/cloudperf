@@ -8,6 +8,8 @@ node_modules
 .cdk.staging
 cdk.out
 
+data.local
+
 # 确保 src/web 目录本身不被忽略
 !src/web/
 # 取消忽略 src/web 下的所有 JS 文件
