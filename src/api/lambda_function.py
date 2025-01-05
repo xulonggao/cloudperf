@@ -14,6 +14,13 @@ def webapi_status(requests):
 
 # ?src=US-NYC-7922,US-NYC-3356&dist=US-SFO-16509,US-SFO-15169
 def webapi_performance(requests):
+    if 'src' not in requests['query'] or 'dist' not in requests['query']:
+        return {'statusCode': 400, 'result': 'param src and dist not found!'}
+    src = requests['query']['src']
+    dist = requests['query']['dist']
+    latencyData = data_layer.get_latency_data_cross_city(src, dist)
+    if latencyData == None:
+        return {'statusCode': 400, 'result': 'param src and dist invalid!'}
     return {
         'statusCode': 200,
         'result': {

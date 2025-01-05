@@ -1,6 +1,7 @@
 import ipaddress
 import pymysql
 import redis
+import re
 import settings
 from typing import List, Dict, Any
 
@@ -269,3 +270,14 @@ def get_cityobject_by_keyword(keyword:str, limit=50):
         keyword = safe_like_pattern(keyword)
         obj = (f"%{keyword}%",)
     return get_cityobject(filter, obj, limit)
+
+def get_latency_data_cross_city(sourceCityId:str, destCityId:str):
+    pattern = r'^[\d,]+$'
+    if not bool(re.match(pattern, sourceCityId)) or not bool(re.match(pattern, destCityId)):
+        return None
+    return cache_mysql_select(f'''
+select src_city_id as src, dist_city_id as dist, sum(samples) as samples,
+min(latency_min) as min,max(latency_max) as max,avg(latency_avg) as avg,avg(latency_p50) as p50,
+avg(latency_p70) as p70,avg(latency_p90) as p90,avg(latency_p95) as p95
+from statistics where src_city_id in (${sourceCityId}) and dist_city_id in (${destCityId}) group by src_city_id,dist_city_id
+''')
