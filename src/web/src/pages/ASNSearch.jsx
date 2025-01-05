@@ -49,6 +49,7 @@ export default function ASNSearch() {
 
     const handleSearch = async () => {
         try {
+            setResults([]); // Clear previous results before new search
             const data = await fetchASNInfo(filter);
             setResults(data);
             setSelected([]);
