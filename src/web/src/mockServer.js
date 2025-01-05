@@ -11,24 +11,24 @@ const mockCountries = [
 
 const mockCities = {
     "US": [
-        { id: "US-NYC", name: "New York", lat: 40.7128, lon: -74.006 },
-        { id: "US-SFO", name: "San Francisco", lat: 37.7749, lon: -122.4194 }
+        { id: "New York", name: "New York", latitude: 40.7128, longitude: -74.006 },
+        { id: "San Francisco", name: "San Francisco", latitude: 37.7749, longitude: -122.4194 }
     ],
     "CN": [
-        { id: "CN-SHA", name: "Shanghai", lat: 31.2304, lon: 121.4737 },
-        { id: "CN-BEJ", name: "Beijing", lat: 39.9042, lon: 116.4074 }
+        { id: "Shanghai", name: "Shanghai", latitude: 31.2304, longitude: 121.4737 },
+        { id: "Beijing", name: "Beijing", latitude: 39.9042, longitude: 116.4074 }
     ]
 };
 
 const mockAsns = {
     "US": {
-        "US-NYC": [
-            { id: "AS7922", name: "Comcast", cityId: "US-NYC-7922" },
-            { id: "AS3356", name: "Level 3", cityId: "US-NYC-3356" }
+        "New York": [
+            { asn: "AS7922", asnName: "Comcast", cityId: "US-NYC-7922" },
+            { asn: "AS3356", asnName: "Level 3", cityId: "US-NYC-3356" }
         ],
-        "US-SFO": [
-            { id: "AS16509", name: "Amazon", cityId: "US-SFO-16509" },
-            { id: "AS15169", name: "Google", cityId: "US-SFO-15169" }
+        "San Francisco": [
+            { asn: "AS16509", asnName: "Amazon", cityId: "US-SFO-16509" },
+            { asn: "AS15169", asnName: "Google", cityId: "US-SFO-15169" }
         ]
     }
 };
@@ -100,14 +100,19 @@ export function startMockServer() {
                 const ip = request.queryParams.ip;
                 return {
                     ip,
-                    asn: "AS15169",
+                    asn: "15169",
                     country: "US",
                     region: "California",
                     asnType: "Content",
-                    ipRange: ["2.3.4.0", "2.3.4.255"],
+                    startIp: "2.3.4.0",
+                    endIp: "2.3.4.255",
                     cityId: "US-SFO-15169",
                     latitude: 37.7749,
-                    longitude: -122.4194
+                    longitude: -122.4194,
+                    name: "Ohio",
+                    asnName: "Telecom",
+                    domain: "",
+                    ipcounts: 12413,
                 };
             });
 
@@ -116,24 +121,34 @@ export function startMockServer() {
                 const filter = request.queryParams.filter;
                 return [
                     {
-                        asn: "AS16509",
+                        asn: "16509",
                         country: "US",
                         region: "Virginia",
                         asnType: "Cloud",
-                        ipRange: ["3.2.34.0", "3.2.34.255"],
+                        startIp: "3.2.34.0",
+                        endIp: "3.2.34.255",
                         cityId: "US-IAD-16509",
                         latitude: 38.9519,
-                        longitude: -77.4480
+                        longitude: -77.4480,
+                        name: "Ohio",
+                        asnName: "Telecom",
+                        domain: "",
+                        ipcounts: 12413,
                     },
                     {
-                        asn: "AS16510",
+                        asn: "16510",
                         country: "US",
                         region: "Virginia",
                         asnType: "Cloud",
-                        ipRange: ["3.2.35.0", "3.2.35.255"],
+                        startIp: "3.2.35.0",
+                        endIp: "3.2.35.255",
                         cityId: "US-IAD-16510",
                         latitude: 36.9519,
-                        longitude: -75.4480
+                        longitude: -75.4480,
+                        name: "Ohio",
+                        asnName: "Telecom",
+                        domain: "",
+                        ipcounts: 12413,
                     }
                 ];
             });
@@ -198,13 +213,13 @@ export function startMockServer() {
             this.get("/country", () => mockCountries);
 
             this.get("/city", (schema, request) => {
-                const country = request.queryParams.countryId;
+                const country = request.queryParams.country;
                 return mockCities[country] || [];
             });
 
             this.get("/asn", (schema, request) => {
-                const country = request.queryParams.countryId;
-                const city = request.queryParams.cityId;
+                const country = request.queryParams.country;
+                const city = request.queryParams.city;
                 return country && city ? mockAsns[country]?.[city] || [] : [];
             });
             // SQL execution endpoint

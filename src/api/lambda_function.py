@@ -70,35 +70,30 @@ def webapi_login(requests):
 
 # country=US&city=US-NYC
 def webapi_asn(requests):
+    asns = []
+    if 'country' in requests['query'] and len(requests['query']['country']) >= 2:
+        if 'city' in requests['query'] and len(requests['query']['city']) >= 2:
+            asns = data_layer.get_asns_by_country_city(requests['query']['country'], requests['query']['city'])
     return {
         'statusCode': 200,
-        'result': [
-            {"id": "AS7922","name": "Comcast","cityId": "US-NYC-7922"},
-            {"id": "AS3356","name": "Level 3","cityId": "US-NYC-3356"}
-        ]
+        'result': asns
     }
 
-# country=CN
 def webapi_country(requests):
+    countrys = data_layer.get_countrys()
     return {
         'statusCode': 200,
-        'result': [
-            {"code": "US","name": "United States"},
-            {"code": "CN","name": "China"},
-            {"code": "JP","name": "Japan"},
-            {"code": "GB","name": "United Kingdom"},
-            {"code": "DE","name": "Germany"}
-        ]
+        'result': countrys
     }
 
 # country=CN
 def webapi_city(requests):
+    result = []
+    if 'country' in requests['query'] and len(requests['query']['country']) >= 2:
+        result = data_layer.get_citys_by_country_code(requests['query']['country'])
     return {
         'statusCode': 200,
-        'result': [
-            {"id": "CN-SHA","name": "Shanghai","lat": 31.2304,"lon": 121.4737},
-            {"id": "CN-BEJ","name": "Beijing","lat": 39.9042,"lon": 116.4074}
-        ]
+        'result': result
     }
 
 # get
@@ -115,60 +110,49 @@ def webapi_cityset(requests):
         ]
     }
 
-# ip=2.3.4.5
-def webapi_ipinfo(requests):
+def webapi_runsql(requests):
+    sql = json.loads(requests['body'])
+    ret = data_layer.mysql_batch_execute(sql['sql'])
+    return {
+        "statusCode": 200,
+        "result": ret
+    }
+
+# GET /api/redis?key=test
+# PUT /api/redis {key: "get", value: "val2"}
+# DELETE /api/redis?key=test
+def webapi_redis(requests):
     return {
         'statusCode': 200,
-        'result': {
-            "ip": "2.3.4.5",
-            "asn": "AS15169",
-            "country": "US",
-            "region": "California",
-            "asnType": "Content",
-            "ipRange": [
-                "2.3.4.0",
-                "2.3.4.255"
-            ],
-            "cityId": "US-SFO-15169",
-            "latitude": 37.7749,
-            "longitude": -122.4194
-        }
+        'result': "value"
+    }
+
+# ip=136.227.141.146 2296614290
+def webapi_ipinfo(requests):
+    if 'ip' not in requests['query']:
+        return {'statusCode': 400, 'result':'need param ip.'}
+    city = data_layer.get_cityobject_by_ip(requests['query']['ip'])
+    if len(city) == 0:
+        return {'statusCode': 404, 'result':'not found.'}
+    print(city)
+    return {
+        "statusCode": 200,
+        "result": city[0]
     }
 
 # filter=amazon
 def webapi_asninfo(requests):
+    if 'filter' not in requests['query']:
+        return {'statusCode': 400, 'result':'need param filter.'}
+    filter = requests['query']['filter']
+    if len(filter) <= 2:
+        return {'statusCode': 400, 'result':'The keyword length must be greater than 3.'}
+    # (38661, 'KR', 'hosting', 405760, 'abcle', '', datetime.datetime(2025, 1, 4, 3, 47, 37))
+    citys = data_layer.get_cityobject_by_keyword(filter)
     return {
         'statusCode': 200,
-        'result': [
-            {
-                "asn": "AS16509",
-                "country": "US",
-                "region": "Virginia",
-                "asnType": "Cloud",
-                "ipRange": [
-                    "3.2.34.0",
-                    "3.2.34.255"
-                ],
-                "cityId": "US-IAD-16509",
-                "latitude": 38.9519,
-                "longitude": -77.448
-            },
-            {
-                "asn": "AS16510",
-                "country": "US",
-                "region": "Virginia",
-                "asnType": "Cloud",
-                "ipRange": [
-                    "3.2.35.0",
-                    "3.2.35.255"
-                ],
-                "cityId": "US-IAD-16510",
-                "latitude": 36.9519,
-                "longitude": -75.448
-            }
-        ]
+        'result': citys
     }
-
 
 '''
 requests: {
@@ -218,6 +202,7 @@ def lambda_handler(event, context):
         pass
     requests = {'version': '1.0'}
     if 'version' in event:
+        # https://docs.aws.amazon.com/zh_cn/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html#http-api-develop-integrations-lambda.response
         if event['version'] == '2.0':
             requests = {
                 'version': 'apigw-httpapi2.0',
@@ -225,7 +210,8 @@ def lambda_handler(event, context):
                 'useragent': event['requestContext']['http']['userAgent'],
                 'method': event['requestContext']['http']['method'],
                 'body': event['body'] if 'body' in event else null,
-                'path': event['requestContext']['http']['path']
+                'path': event['requestContext']['http']['path'],
+                'query': event['queryStringParameters']
             }
         elif event['version'] == '1.0':
             requests = {
@@ -234,7 +220,8 @@ def lambda_handler(event, context):
                 'useragent': event['requestContext']['identity']['userAgent'],
                 'method': event['requestContext']['httpMethod'],
                 'body': event['body'],
-                'path': event['requestContext']['path']
+                'path': event['requestContext']['path'],
+                'query': event['queryStringParameters']
             }
     else:
         # 健康检查字段：
@@ -247,10 +234,10 @@ def lambda_handler(event, context):
             'useragent': event['headers']['user-agent'],
             'method': event['httpMethod'],
             'body': event['body'],
-            'path': event['path']
+            'path': event['path'],
+            'query': event['queryStringParameters']
         }
-    querys = event['queryStringParameters']
-    requests['next'] = querys['next'] if 'next' in querys else ''
+    requests['next'] = requests['query']['next'] if 'next' in requests['query'] else ''
     print(requests)
     apimapping = {
         '/job':fping_logic,
@@ -263,6 +250,8 @@ def lambda_handler(event, context):
         '/api/asn': webapi_asn,
         '/api/performance': webapi_performance,
         '/api/login': webapi_login,
+        '/api/runsql': webapi_runsql,
+        '/api/redis': webapi_redis,
     }
     if requests['path'] not in apimapping:
         if requests['useragent'].startswith('ELB-HealthChecker/2.0'):

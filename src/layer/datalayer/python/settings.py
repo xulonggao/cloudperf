@@ -5,6 +5,7 @@ import os
 CACHE_HOST='redis.cloudperf.vpc'
 CACHE_PORT=6379
 CACHE_BASE_TTL=3600
+CACHE_LONG_TTL=86400
 
 DB_READ_HOST='rds-r.cloudperf.vpc'
 DB_WRITE_HOST='rds.cloudperf.vpc'

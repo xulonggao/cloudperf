@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-const TIMEOUT_MS = 5000; // 5 second timeout
+const TIMEOUT_MS = 30000; // 30 second timeout
 
 const fetchWithTimeout = async (url, options = {}) => {
     const controller = new AbortController();
@@ -112,11 +112,11 @@ export const fetchCountries = async (query = '') => {
     }
 };
 
-export const fetchCities = async (countryId = '', query = '') => {
+export const fetchCities = async (country = '', query = '') => {
     try {
         const params = new URLSearchParams();
         if (query) params.append('q', query);
-        if (countryId) params.append('countryId', countryId);
+        if (country) params.append('country', country);
         const response = await fetchWithTimeout(
             `${API_BASE_URL}/city?${params.toString()}`
         );
@@ -278,12 +278,12 @@ export const deleteRedisKey = async (key) => {
     }
 };
 
-export const fetchAsns = async (countryId = '', cityId = '', query = '') => {
+export const fetchAsns = async (country = '', city = '', query = '') => {
     try {
         const params = new URLSearchParams();
         if (query) params.append('q', query);
-        if (countryId) params.append('countryId', countryId);
-        if (cityId) params.append('cityId', cityId);
+        if (country) params.append('country', country);
+        if (city) params.append('city', city);
         const response = await fetchWithTimeout(
             `${API_BASE_URL}/asn?${params.toString()}`
         );

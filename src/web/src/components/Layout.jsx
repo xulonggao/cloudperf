@@ -90,7 +90,7 @@ export default function Layout() {
             navigate('/login');
         }
 
-        // Fetch status every 10 seconds
+        // Fetch status every 60 seconds
         const fetchStatus = async () => {
             try {
                 const response = await fetch('/api/status');
@@ -103,9 +103,9 @@ export default function Layout() {
             }
         };
 
-        fetchStatus();
-        const interval = setInterval(fetchStatus, 10000);
-        return () => clearInterval(interval);
+        // fetchStatus();
+        // const interval = setInterval(fetchStatus, 60000);
+        // return () => clearInterval(interval);
     }, [location, navigate]);
 
     const handleLogout = () => {

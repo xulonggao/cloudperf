@@ -102,7 +102,7 @@ export default function ASNSearch() {
                         label="Search ASNs"
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        placeholder="e.g. Amazon"
+                        placeholder="e.g. Amazon or ASN8987"
                     />
                     <Button
                         variant="contained"
@@ -139,12 +139,11 @@ export default function ASNSearch() {
                                                 }}
                                             />
                                         </TableCell>
+                                        <TableCell>City ID</TableCell>
                                         <TableCell>ASN</TableCell>
                                         <TableCell>Country</TableCell>
-                                        <TableCell>Region</TableCell>
                                         <TableCell>Type</TableCell>
                                         <TableCell>IP Range</TableCell>
-                                        <TableCell>City ID</TableCell>
                                         <TableCell>Location</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -157,12 +156,11 @@ export default function ASNSearch() {
                                                     onChange={() => handleToggleSelect(result.cityId)}
                                                 />
                                             </TableCell>
-                                            <TableCell>{result.asn}</TableCell>
-                                            <TableCell>{result.country}</TableCell>
-                                            <TableCell>{result.region}</TableCell>
-                                            <TableCell>{result.asnType}</TableCell>
-                                            <TableCell>{result.ipRange.join(' - ')}</TableCell>
-                                            <TableCell>{result.cityId}</TableCell>
+                                            <TableCell>{result.cityId} - {result.name}</TableCell>
+                                            <TableCell>AS{result.asn} - {result.asnName}</TableCell>
+                                            <TableCell>{result.country} - {result.region}</TableCell>
+                                            <TableCell>{result.asnType} - {result.domain}</TableCell>
+                                            <TableCell>{`${result.startIp}, ${result.endIp}`}</TableCell>
                                             <TableCell>{`${result.latitude}, ${result.longitude}`}</TableCell>
                                         </TableRow>
                                     ))}

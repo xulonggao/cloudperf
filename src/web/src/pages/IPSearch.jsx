@@ -54,7 +54,7 @@ export default function IPSearch() {
                         label="Enter IP Address"
                         value={ip}
                         onChange={(e) => setIp(e.target.value)}
-                        placeholder="e.g. 2.3.4.5"
+                        placeholder="e.g. 108.175.48.2"
                     />
                     <Button
                         variant="contained"
@@ -78,28 +78,24 @@ export default function IPSearch() {
                             <Table>
                                 <TableBody>
                                     <TableRow>
+                                        <TableCell component="th" scope="row">City ID</TableCell>
+                                        <TableCell>{result.cityId} - {result.name}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
                                         <TableCell component="th" scope="row">ASN</TableCell>
-                                        <TableCell>{result.asn}</TableCell>
+                                        <TableCell>AS{result.asn} - {result.asnName}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell component="th" scope="row">Country</TableCell>
-                                        <TableCell>{result.country}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell component="th" scope="row">Region</TableCell>
-                                        <TableCell>{result.region}</TableCell>
+                                        <TableCell>{result.country} - {result.region}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell component="th" scope="row">ASN Type</TableCell>
-                                        <TableCell>{result.asnType}</TableCell>
+                                        <TableCell>{result.asnType} - {result.domain}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell component="th" scope="row">IP Range</TableCell>
-                                        <TableCell>{result.ipRange.join(' - ')}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell component="th" scope="row">City ID</TableCell>
-                                        <TableCell>{result.cityId}</TableCell>
+                                        <TableCell>{`${result.startIp}, ${result.endIp} \(${result.ipcounts} ips\)`}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell component="th" scope="row">Location</TableCell>

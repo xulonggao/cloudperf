@@ -207,7 +207,7 @@ export default function NetworkSearch() {
                                 <Autocomplete
                                     multiple
                                     options={asns}
-                                    getOptionLabel={(option) => option.name}
+                                    getOptionLabel={(option) => option.asnName}
                                     value={selectedAsns}
                                     onChange={(_, newValue) => setSelectedAsns(newValue)}
                                     disabled={!selectedCity}
@@ -250,7 +250,7 @@ export default function NetworkSearch() {
                         <Autocomplete
                             multiple
                             options={destAsns}
-                            getOptionLabel={(option) => option.name}
+                            getOptionLabel={(option) => option.asnName}
                             value={selectedDestAsns}
                             onChange={(_, newValue) => setSelectedDestAsns(newValue)}
                             disabled={!destCity}

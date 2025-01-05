@@ -8,7 +8,7 @@ export default function Maintenance() {
     const [sql, setSql] = useState('');
     const [sqlResult, setSqlResult] = useState(null);
     const [redisKey, setRedisKey] = useState('');
-    const [redisValue, setRedisValue] = useState('');
+    const [redisValue, setRedisVal] = useState('');
     const [redisKeys, setRedisKeys] = useState([]);
     const [editingKey, setEditingKey] = useState(null);
 
@@ -53,7 +53,7 @@ export default function Maintenance() {
             }
         } else {
             setEditingKey(key);
-            setRedisValue(redisKeys.find(k => k.key === key)?.value || '');
+            setRedisVal(redisKeys.find(k => k.key === key)?.value || '');
         }
     };
 
@@ -119,7 +119,7 @@ export default function Maintenance() {
                                 color="secondary"
                                 onClick={() => {
                                     setEditingKey('new');
-                                    setRedisValue('');
+                                    setRedisVal('');
                                 }}
                             >
                                 新建
@@ -138,35 +138,38 @@ export default function Maintenance() {
                                     fullWidth
                                     label="值"
                                     value={redisValue}
-                                    onChange={(e) => setRedisValue(e.target.value)}
+                                    onChange={(e) => setRedisVal(e.target.value)}
                                     sx={{ mb: 1 }}
                                 />
-                                <Button
-                                    variant="contained"
-                                    onClick={async () => {
-                                        try {
-                                            await setRedisValue(redisKey, redisValue);
-                                            setRedisKeys([...redisKeys, { key: redisKey, value: redisValue }]);
+                                <Box>
+                                    <Button
+                                        variant="contained"
+                                        onClick={async () => {
+                                            try {
+                                                await setRedisValue(redisKey, redisValue);
+                                                const data = await getRedisValue(redisKey);
+                                                setRedisKeys([...redisKeys, { key: redisKey, value: data }]);
+                                                setEditingKey(null);
+                                                setRedisKey('');
+                                                setRedisVal('');
+                                            } catch (error) {
+                                                console.error('Error creating Redis key:', error);
+                                            }
+                                        }}
+                                        sx={{ mr: 1 }}
+                                    >
+                                        保存
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
                                             setEditingKey(null);
                                             setRedisKey('');
-                                            setRedisValue('');
-                                        } catch (error) {
-                                            console.error('Error creating Redis key:', error);
-                                        }
-                                    }}
-                                    sx={{ mr: 1 }}
-                                >
-                                    保存
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        setEditingKey(null);
-                                        setRedisKey('');
-                                        setRedisValue('');
-                                    }}
-                                >
-                                    取消
-                                </Button>
+                                            setRedisVal('');
+                                        }}
+                                    >
+                                        取消
+                                    </Button>
+                                </Box>
                             </Box>
                         )}
                         <List>
@@ -197,12 +200,40 @@ export default function Maintenance() {
                                         primary={item.key}
                                         secondary={
                                             editingKey === item.key ? (
-                                                <TextField
-                                                    fullWidth
-                                                    value={redisValue}
-                                                    onChange={(e) => setRedisValue(e.target.value)}
-                                                    variant="standard"
-                                                />
+                                                <Box>
+                                                    <TextField
+                                                        fullWidth
+                                                        value={redisValue}
+                                                        onChange={(e) => setRedisVal(e.target.value)}
+                                                        variant="standard"
+                                                        sx={{ mb: 1 }}
+                                                    />
+                                                    <Button
+                                                        variant="contained"
+                                                        size="small"
+                                                        onClick={async () => {
+                                                            try {
+                                                                await setRedisValue(item.key, redisValue);
+                                                                const data = await getRedisValue(item.key);
+                                                                setRedisKeys(redisKeys.map(k =>
+                                                                    k.key === item.key ? { ...k, value: data } : k
+                                                                ));
+                                                                setEditingKey(null);
+                                                            } catch (error) {
+                                                                console.error('Error updating Redis value:', error);
+                                                            }
+                                                        }}
+                                                        sx={{ mr: 1 }}
+                                                    >
+                                                        保存
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => setEditingKey(null)}
+                                                    >
+                                                        取消
+                                                    </Button>
+                                                </Box>
                                             ) : (
                                                 item.value
                                             )
