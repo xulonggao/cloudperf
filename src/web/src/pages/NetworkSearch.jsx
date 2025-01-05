@@ -85,7 +85,9 @@ export default function NetworkSearch() {
 
     // Fetch cities when country is selected
     useEffect(() => {
+        setSelectedAsns([]); // Reset ASNs when country changes or country is cleared
         if (selectedCountry) {
+            setSelectedCity(''); // Reset city when country changes
             fetchCities(selectedCountry)
                 .then(data => setCities(data))
                 .catch(error => console.error('Error fetching cities:', error));
@@ -96,6 +98,7 @@ export default function NetworkSearch() {
 
     // Fetch ASNs when city is selected
     useEffect(() => {
+        setSelectedAsns([]); // Reset selected ASNs when city changes or city is cleared
         if (selectedCountry && selectedCity) {
             fetchAsns(selectedCountry, selectedCity)
                 .then(data => setAsns(data))
@@ -107,7 +110,9 @@ export default function NetworkSearch() {
 
     // Similar effects for destination selection
     useEffect(() => {
+        setSelectedDestAsns([]); // Reset dest ASNs when country changes or country is cleared
         if (destCountry) {
+            setDestCity(''); // Reset dest city when country changes
             fetchCities(destCountry)
                 .then(data => setDestCities(data))
                 .catch(error => console.error('Error fetching destination cities:', error));
@@ -117,6 +122,7 @@ export default function NetworkSearch() {
     }, [destCountry]);
 
     useEffect(() => {
+        setSelectedDestAsns([]); // Reset selected dest ASNs when city changes or city is cleared
         if (destCountry && destCity) {
             fetchAsns(destCountry, destCity)
                 .then(data => setDestAsns(data))
