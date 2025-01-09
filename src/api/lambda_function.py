@@ -104,17 +104,29 @@ def webapi_city(requests):
     }
 
 # get
-# post {name: "test", cityIds: ["US-IAD-16509", "US-IAD-16510"]}
+# post {name: "aws_temp", cityIds: ["1395638387", "1494300631", "2690672425", "2957825709"]}
 # put {id: 1, name: "US East Coast1", cityIds: ["US-NYC-7922", "US-NYC-3356"]}
-# delete /api/cityset?id=2 
+# delete /api/cityset?id=2
+# return [{"id": 1,"name": "US","cityIds": ["1494300631", "2690672425"]},{"id": 2,"name": "USA","cityIds": ["2957825709", "2690672425"]}]
 def webapi_cityset(requests):
+    ret = []
+    if requests['method'] == 'GET':
+        ret = data_layer.get_citysets()
+        ret = [
+            {**item, 'cityIds': item['cityIds'].split(',') if item.get('cityIds') else []}
+            for item in ret
+        ]
+    elif requests['method'] == 'POST':
+        data = json.loads(requests['body'])
+        ret = data_layer.add_cityset(data['name'], data['cityIds'])
+    elif requests['method'] == 'PUT':
+        data = json.loads(requests['body'])
+        ret = data_layer.edit_cityset(int(data['id']), data['name'], data['cityIds'])
+    elif requests['method'] == 'DELETE':
+        ret = data_layer.del_cityset(int(requests['query']['id']))
     return {
         'statusCode': 200,
-        'result': [
-            {"id": 1,"name": "US East Coast","cityIds": ["US-NYC-7922","US-NYC-3356"]},
-            {"id": 2,"name": "US West Coast","cityIds": ["US-SFO-16509","US-SFO-15169"]},
-            {"id": 3,"name": "cloudperf","cityIds": ["US-IAD-16509","US-IAD-16510"]}
-        ]
+        'result': ret
     }
 
 def webapi_runsql(requests):

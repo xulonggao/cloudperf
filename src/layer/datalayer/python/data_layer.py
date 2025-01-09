@@ -50,6 +50,16 @@ def fetch_all_to_dict(cursor: pymysql.cursors.Cursor) -> List[Dict[str, Any]]:
     # 转换为字典列表
     return [dict(zip(columns, row)) for row in rows]
 
+# 执行写
+def mysql_execute(sql:str, obj = None):
+    conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
+    cursor = conn.cursor()
+    cursor.execute(sql, obj)
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
 def mysql_select(sql:str, obj = None, fetchObject = True):
     conn = pymysql.connect(host=settings.DB_READ_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
     cursor = conn.cursor()
@@ -97,8 +107,8 @@ def mysql_batch_execute(sql: str):
                         results.append({
                             'sql': sql,
                             'type': 'query',
-                            'columns': columns,
-                            'rows': rows
+                            'columns': ','.join(columns), #columns,
+                            'rows': [','.join(map(str, row)) for row in rows] # [list(map(str, row)) for row in rows]
                         })
                     else:
                         print('无结果返回')
@@ -217,6 +227,15 @@ def cache_set(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
         print('cache set failed.', key, ttl, value)
         return None
 
+def cache_delete(key:str):
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        print('cache delete:', key)
+        return r.delete(key)
+    except Exception as e:
+        print('cache delete failed.', key)
+        return None
+
 def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE_TTL):
     key = f'sqlov_{hash(sql)}'
     val = cache_get(key)
@@ -225,6 +244,10 @@ def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE
     ret = mysql_select_onevalue(sql, default = default)
     cache_set(key, ret, ttl)
     return ret
+
+def delete_mysql_select_cache(sql:str, obj = None, fetchObject = True):
+    key = f'sqlsl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
+    return cache_delete(key)
 
 def cache_mysql_select(sql:str, obj = None, fetchObject = True, ttl:int = settings.CACHE_BASE_TTL):
     key = f'sqlsl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
@@ -285,3 +308,23 @@ min(latency_min) as min,max(latency_max) as max,avg(latency_avg) as avg,avg(late
 avg(latency_p70) as p70,avg(latency_p90) as p90,avg(latency_p95) as p95
 from statistics where src_city_id in (${sourceCityId}) and dist_city_id in (${destCityId}) group by src_city_id,dist_city_id
 ''')
+
+CITYSET_DEFAULT_CACHE_SQL = 'select id,name,cityids as cityIds from `cityset`'
+
+def get_citysets():
+    return cache_mysql_select(CITYSET_DEFAULT_CACHE_SQL)
+
+def add_cityset(name:str, city_ids:list):
+    ret = mysql_execute('INSERT into `cityset`(`name`,`cityids`) values(%s,%s)', (name, ','.join(city_ids)))
+    delete_mysql_select_cache(CITYSET_DEFAULT_CACHE_SQL)
+    return ret
+
+def edit_cityset(id:int, name:str, city_ids:list):
+    ret = mysql_execute('UPDATE `cityset` set name=%s,cityids=%s where id=' + str(id), (name, ','.join(city_ids)))
+    delete_mysql_select_cache(CITYSET_DEFAULT_CACHE_SQL)
+    return ret
+
+def del_cityset(id:int):
+    ret = mysql_execute('delete from `cityset` where id=' + str(id))
+    delete_mysql_select_cache(CITYSET_DEFAULT_CACHE_SQL)
+    return ret
