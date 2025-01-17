@@ -52,10 +52,12 @@ def fetch_all_to_dict(cursor: pymysql.cursors.Cursor) -> List[Dict[str, Any]]:
 
 # 执行写
 def mysql_execute(sql:str, obj = None):
+    #pymysql.connections.DEBUG = True
     conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
     cursor = conn.cursor()
     cursor.execute(sql, obj)
     results = cursor.fetchall()
+    conn.commit()
     cursor.close()
     conn.close()
     return results
@@ -300,13 +302,14 @@ def get_cityobject_by_keyword(keyword:str, limit=50):
 
 def get_latency_data_cross_city(sourceCityId:str, destCityId:str):
     pattern = r'^[\d,]+$'
+    print('query with:', sourceCityId, destCityId)
     if not bool(re.match(pattern, sourceCityId)) or not bool(re.match(pattern, destCityId)):
         return None
     return cache_mysql_select(f'''
 select src_city_id as src, dist_city_id as dist, sum(samples) as samples,
 min(latency_min) as min,max(latency_max) as max,avg(latency_avg) as avg,avg(latency_p50) as p50,
 avg(latency_p70) as p70,avg(latency_p90) as p90,avg(latency_p95) as p95
-from statistics where src_city_id in (${sourceCityId}) and dist_city_id in (${destCityId}) group by src_city_id,dist_city_id
+from statistics where src_city_id in ({sourceCityId}) and dist_city_id in ({destCityId}) group by src_city_id,dist_city_id
 ''')
 
 CITYSET_DEFAULT_CACHE_SQL = 'select id,name,cityids as cityIds from `cityset`'

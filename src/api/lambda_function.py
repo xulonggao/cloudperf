@@ -1,5 +1,6 @@
 import json
 import data_layer
+from urllib.parse import unquote_plus
 
 def webapi_status(requests):
     return {
@@ -16,8 +17,8 @@ def webapi_status(requests):
 def webapi_performance(requests):
     if 'src' not in requests['query'] or 'dist' not in requests['query']:
         return {'statusCode': 400, 'result': 'param src and dist not found!'}
-    src = requests['query']['src']
-    dist = requests['query']['dist']
+    src = unquote_plus(requests['query']['src'])
+    dist = unquote_plus(requests['query']['dist'])
     latencyData = data_layer.get_latency_data_cross_city(src, dist)
     if latencyData == None:
         return {'statusCode': 400, 'result': 'param src and dist invalid!'}
