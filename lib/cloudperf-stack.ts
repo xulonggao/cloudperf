@@ -207,7 +207,7 @@ export class CloudperfStack extends cdk.Stack {
       handler: 'lambda_function.lambda_handler',
       role: lambdaRoleQueue,
       timeout: cdk.Duration.minutes(15),
-      layers: [fpingLayer],
+      layers: [pythonLayer, fpingLayer],
       environment: environments,
     });
     const eventSource = new lambdaEventSources.SqsEventSource(fpingQueue, {
