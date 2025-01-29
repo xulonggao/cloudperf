@@ -13,22 +13,60 @@ def webapi_status(requests):
         }
     }
 
+# //fixme，由于相同asn在同一个城市有多个asn号码，会造成选择cityid时少了，如：RU,Moscow,PJSC Rostelecom
+# //fixme, city名字中有空格，貌似搜索有问题，如：DE,Frankfurt am Main 出不来16509，测试ip：63.176.70.29
 # ?src=US-NYC-7922,US-NYC-3356&dist=US-SFO-16509,US-SFO-15169
 def webapi_performance(requests):
     if 'src' not in requests['query'] or 'dist' not in requests['query']:
         return {'statusCode': 400, 'result': 'param src and dist not found!'}
     src = unquote_plus(requests['query']['src'])
-    dist = unquote_plus(requests['query']['dist'])
+    dist = '2228836286,922075495,2265478952,2498629220' #unquote_plus(requests['query']['dist'])
     latencyData = data_layer.get_latency_data_cross_city(src, dist)
+    print(latencyData)
+    # [{'src': 1395638387, 'dist': 922075495, 'samples': Decimal('10'), 'min': 19600, 'max': 22200, 'avg': Decimal('20700.0000'), 'p50': Decimal('20000.0000'), 'p70': Decimal('21300.0000'), 'p90': Decimal('22000.0000'), 'p95': Decimal('22000.0000')},{},{}]
+    # src,dist,samples,min,max,avg,p50,p70,p90,p95",
+    # "1395638387,2228836286,10,23900,25500,24600.0000,24600.0000,24800.0000,25100.0000,25100.0000",
     if latencyData == None:
         return {'statusCode': 400, 'result': 'param src and dist invalid!'}
+    data = {
+        'srcCityIds': {},
+        'distCityIds': {}
+    }
+    for item in latencyData:
+        if item['src'] not in data['srcCityIds']:
+            data['srcCityIds'][item['src']] = {'samples':0, 'data':0}
+        data['srcCityIds'][item['src']]['samples'] += item['samples']
+        data['srcCityIds'][item['src']]['data'] += item['p70'] * item['samples']
+        if item['dist'] not in data['distCityIds']:
+            data['distCityIds'][item['dist']] = {'samples':0, 'data':0}
+        data['distCityIds'][item['dist']]['samples'] += item['samples']
+        data['distCityIds'][item['dist']]['data'] += item['p70'] * item['samples']
+    '''
+    样本所在延迟的区间
+    samples / latency
+    样本数量饼图
+    p70最大的五个src，p70最大的五个dist
+    聚合完所有数据后得出：
+        p70最大的五个asn，p70最大的五个asn
+        p70最大的五个city，p70最大的五个city
+    '''
     return {
         'statusCode': 200,
         'result': {
             "samples": 1000,
+            "srcCityIds": src.count(','),
+            "distCityIds": dist.count(','),
             "avgLatency": 45,
-            "medianLatency": 42,
             "p70Latency": 50,
+            "p90Latency": 42,
+            "p95Latency": 42,
+            "latencySeriesData": [
+                {"latency": 50, "samples": 100},
+                {"latency": 60, "samples": 10},
+                {"latency": 80, "samples": 20},
+                {"latency": 60, "samples": 30},
+                {"latency": 65, "samples": 15},
+            ],
             "timeSeriesData": [
                 {"date": "2025-01-04","avgLatency": 50},
                 {"date": "2025-01-03","avgLatency": 52},

@@ -48,9 +48,16 @@ const mockCitySets = [
 
 const mockPerformanceData = {
     samples: 1000,
+    srcCityIds: 1234,
+    distCityIds: 2345,
     avgLatency: 45,
-    medianLatency: 42,
     p70Latency: 50,
+    p90Latency: 42,
+    p95Latency: 42,
+    latencySeriesData: Array(7).fill().map((_, i) => ({
+        latency: Math.floor(Math.random() * 20 + 35),
+        samples: Math.floor(Math.random() * 20 + 35)
+    })),
     timeSeriesData: Array(7).fill().map((_, i) => ({
         date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         avgLatency: Math.floor(Math.random() * 20 + 35)

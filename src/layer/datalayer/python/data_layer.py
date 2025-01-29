@@ -2,8 +2,11 @@ import ipaddress
 import pymysql
 import redis
 import re
+import json
 import settings
+import boto3
 from typing import List, Dict, Any
+from botocore.exceptions import ClientError
 
 redis_pool = redis.ConnectionPool(
     host=settings.CACHE_HOST,
@@ -267,9 +270,6 @@ def get_citys_by_country_code(country_code):
     return cache_mysql_select(
         'SELECT name as id,name,latitude,longitude FROM city WHERE country_code = %s GROUP BY name', (country_code,))
 
-def get_asns_by_country_city(country_code, city_name):
-    return get_cityobject("c.country_code = %s and c.name = %s",(country_code,city_name,))
-
 def get_cityobject(filter:str, obj = None, limit:int = 50):
     return cache_mysql_select('''
 select c.id as cityId,a.asn as asn,c.country_code as country,
@@ -280,12 +280,15 @@ a.type as asnType,a.ipcounts as ipcounts,
 INET_NTOA(i.start_ip) as startIp, INET_NTOA(i.end_ip) as endIp from city as c, asn as a,iprange as i
  where c.id = i.city_id and c.asn=a.asn and ''' + filter + f' limit {limit}', obj)
 
+def get_asns_by_country_city(country_code, city_name):
+    return get_cityobject("c.country_code = %s and c.name = %s group by c.id,c.asn",(country_code,city_name,))
+
 def get_cityobject_by_ip(ip:str):
     ipno = ipaddress.IPv4Address(ip)._ip
-    return get_cityobject("i.start_ip<=%s and i.end_ip>=%s", (ipno,ipno))
+    return get_cityobject("i.start_ip<=%s and i.end_ip>=%s group by c.id", (ipno,ipno))
 
 def get_cityobject_by_id(id:int):
-    return get_cityobject("c.id=%s",(id,),limit=1)
+    return get_cityobject("c.id=%s group by c.id",(id,),limit=1)
 
 def get_cityobject_by_keyword(keyword:str, limit=50):
     if keyword.lower().startswith('as'):
@@ -295,7 +298,7 @@ def get_cityobject_by_keyword(keyword:str, limit=50):
         filter = f'a.asn={keyword}'
         obj = None
     else:
-        filter = """ CONCAT_WS('',c.name, c.friendly_name, c.region, a.name, a.domain) LIKE %s ESCAPE '\\\\' """
+        filter = """ CONCAT_WS('',c.name, c.friendly_name, c.region, a.name, a.domain) LIKE %s ESCAPE '\\\\' group by c.id """
         keyword = safe_like_pattern(keyword)
         obj = (f"%{keyword}%",)
     return get_cityobject(filter, obj, limit)
@@ -331,3 +334,120 @@ def del_cityset(id:int):
     ret = mysql_execute('delete from `cityset` where id=' + str(id))
     delete_mysql_select_cache(CITYSET_DEFAULT_CACHE_SQL)
     return ret
+
+def check_expired_iprange(days, limit):
+    return mysql_select('select start_ip,end_ip,city_id from iprange where lastcheck_time < date_sub(now(), interval %s day) order by lastcheck_time limit %s', (days, limit))
+
+def update_pingable_result(city_id, start_ip, end_ip):
+    # 通过 start_ip end_ip city_id 来更新对应 pingable 表的数据，更新 lastresult 右移1位高位为0，表示这个ip最新数据没有更新了
+    mysql_execute('update pingable set lastresult=lastresult>>1 where city_id=%s and ip>=%s and ip<=%s', (city_id, start_ip, end_ip))
+    # 检查 pingable 表，删除 lastresult 全为 0 的条目，因为该ip已经连续不可ping了（就算新的任务他又可ping了，重新插入就是）
+    mysql_execute('delete from pingable where lastresult=0')
+    # 更新 lastcheck_time 时间，避免马上再次检查
+    mysql_execute('update iprange set lastcheck_time = CURRENT_TIMESTAMP where city_id=%s and start_ip=%s', (city_id, start_ip))
+
+def send_sqs_messages_batch(queue_url: str, messages: List[Dict[str, Any]]) -> Dict:
+    """
+    批量发送 JSON 消息到 SQS 队列
+    Args:
+        queue_url (str): SQS 队列的 URL
+        messages (List[Dict]): JSON 消息列表
+    
+    Returns:
+        Dict: 发送结果，包含成功和失败的消息
+    """
+    sqs = boto3.client('sqs')
+    # 准备批量发送的条目，将消息转换为 JSON 字符串
+    entries = [
+        {
+            'Id': str(i),  # 批次中消息的唯一标识
+            'MessageBody': json.dumps(message)  # 将字典转换为 JSON 字符串
+        }
+        for i, message in enumerate(messages)
+    ]
+    # 每批最多发送 10 条消息
+    results = {
+        'successful': [],
+        'failed': []
+    }
+    # 分批处理
+    for i in range(0, len(entries), 10):
+        batch = entries[i:i + 10]
+        try:
+            response = sqs.send_message_batch(
+                QueueUrl=queue_url,
+                Entries=batch
+            )
+            # 收集结果
+            if 'Successful' in response:
+                results['successful'].extend(response['Successful'])
+            if 'Failed' in response:
+                results['failed'].extend(response['Failed'])                
+        except Exception as e:
+            # 如果整个批次发送失败，将所有消息标记为失败
+            failed_messages = [
+                {
+                    'Id': entry['Id'],
+                    'Error': str(e)
+                }
+                for entry in batch
+            ]
+            results['failed'].extend(failed_messages)
+    return results
+
+
+def get_sqs_queue_size(queue_url: str) -> dict:
+    """
+    获取 SQS 队列的大小信息
+    Args:
+        queue_url (str): SQS 队列的 URL
+    Returns:
+        dict: 包含队列大小信息的字典
+    """
+    try:
+        # 创建 SQS 客户端
+        sqs = boto3.client('sqs')
+        # 获取队列属性
+        response = sqs.get_queue_attributes(
+            QueueUrl=queue_url,
+            AttributeNames=[
+                'ApproximateNumberOfMessages',              # 可见消息数
+                'ApproximateNumberOfMessagesNotVisible',    # 正在处理的消息数
+                'ApproximateNumberOfMessagesDelayed'        # 延迟的消息数
+            ]
+        )
+        # 提取队列大小信息
+        queue_size = {
+            'visible_messages': int(response['Attributes']['ApproximateNumberOfMessages']),
+            'invisible_messages': int(response['Attributes']['ApproximateNumberOfMessagesNotVisible']),
+            'delayed_messages': int(response['Attributes']['ApproximateNumberOfMessagesDelayed']),
+            'total_messages': int(response['Attributes']['ApproximateNumberOfMessages']) + 
+                            int(response['Attributes']['ApproximateNumberOfMessagesNotVisible']) + 
+                            int(response['Attributes']['ApproximateNumberOfMessagesDelayed'])
+        }
+        return {
+            'statusCode': 200,
+            'queue_size': queue_size
+        }
+    except ClientError as e:
+        return {
+            'statusCode': 500,
+            'error': str(e),
+            'error_code': e.response['Error']['Code']
+        }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'error': str(e)
+        }
+
+# step = /18 = 2^14
+def split_ip_range(start_ip, end_ip, step = 16384):
+    subnets = []
+    i = start_ip
+    while i <= end_ip:
+        ei = min(i+step-1,end_ip)
+        subnets.append([i, ei])
+        #print(ipaddress.IPv4Address(i), ipaddress.IPv4Address(ei))
+        i += step
+    return subnets

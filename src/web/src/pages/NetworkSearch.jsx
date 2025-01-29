@@ -287,23 +287,23 @@ export default function NetworkSearch() {
                         {/* Metrics Cards */}
                         <Grid item xs={12}>
                             <Grid container spacing={2}>
-                                <Grid item xs={3}>
+                                <Grid item xs={4}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
                                                 Sample Count
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.samples}
+                                                {performanceData.samples} ({performanceData.srcCityIds}/{performanceData.destCityIds})
                                             </Typography>
                                         </CardContent>
                                     </Card>
                                 </Grid>
-                                <Grid item xs={3}>
+                                <Grid item xs={2}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
-                                                Average Latency
+                                                Avg Latency
                                             </Typography>
                                             <Typography variant="h5">
                                                 {performanceData.avgLatency}ms
@@ -311,19 +311,7 @@ export default function NetworkSearch() {
                                         </CardContent>
                                     </Card>
                                 </Grid>
-                                <Grid item xs={3}>
-                                    <Card>
-                                        <CardContent>
-                                            <Typography color="textSecondary" gutterBottom>
-                                                Median Latency
-                                            </Typography>
-                                            <Typography variant="h5">
-                                                {performanceData.medianLatency}ms
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid item xs={3}>
+                                <Grid item xs={2}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
@@ -335,7 +323,49 @@ export default function NetworkSearch() {
                                         </CardContent>
                                     </Card>
                                 </Grid>
+                                <Grid item xs={2}>
+                                    <Card>
+                                        <CardContent>
+                                            <Typography color="textSecondary" gutterBottom>
+                                                P90 Latency
+                                            </Typography>
+                                            <Typography variant="h5">
+                                                {performanceData.p90Latency}ms
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                                <Grid item xs={2}>
+                                    <Card>
+                                        <CardContent>
+                                            <Typography color="textSecondary" gutterBottom>
+                                                P95 Latency
+                                            </Typography>
+                                            <Typography variant="h5">
+                                                {performanceData.p95Latency}ms
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
                             </Grid>
+                        </Grid>
+
+                        {/* Latency Series Chart */}
+                        <Grid item xs={12}>
+                            <Paper sx={{ p: 2 }}>
+                                <Typography variant="h6" gutterBottom>
+                                    Latency Trend
+                                </Typography>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={performanceData.latencySeriesData}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="latency" />
+                                        <YAxis />
+                                        <Tooltip />
+                                        <Line type="monotone" dataKey="samples" stroke="#8884d8" />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </Paper>
                         </Grid>
 
                         {/* Time Series Chart */}

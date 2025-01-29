@@ -8,6 +8,8 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as events_targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
@@ -183,10 +185,22 @@ export class CloudperfStack extends cdk.Stack {
       securityGroups: [sg],
     });
 
+    // 对外 api 服务
+    const alb = new elbv2.ApplicationLoadBalancer(this, stackPrefix + 'api-alb', {
+      vpc,
+      internetFacing: true,
+      vpcSubnets: { subnets: vpc.publicSubnets }
+    });
+    alb.logAccessLogs(logBucket, 'alb-logs');
+
     // fping 任务队列
     const lambdaRoleQueue = new iam.Role(this, 'role-queue', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
+    const api_environments = {
+      ...environments,
+      API_URL: alb.loadBalancerDnsName
+    };
     const fpingQueueLambda = new lambda.Function(this, 'fping-queue', {
       runtime: lambda.Runtime.PYTHON_3_12,
       code: lambda.Code.fromAsset('src/fping-queue'),
@@ -197,8 +211,8 @@ export class CloudperfStack extends cdk.Stack {
       environment: environments,
     });
     const eventSource = new lambdaEventSources.SqsEventSource(fpingQueue, {
-      batchSize: 2,
-      maxBatchingWindow: cdk.Duration.seconds(300),
+      batchSize: 1,
+      maxBatchingWindow: cdk.Duration.seconds(60),
       maxConcurrency: 10
     });
     fpingQueueLambda.addEventSource(eventSource);
@@ -224,6 +238,26 @@ export class CloudperfStack extends cdk.Stack {
       environment: web_environments,
     });
 
+    // 定时任务
+    const lambdaRoleCron = new iam.Role(this, 'role-cron', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    });
+    const cronLambda = new lambda.Function(this, 'cron', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      code: lambda.Code.fromAsset('src/cron'),
+      handler: 'lambda_function.lambda_handler',
+      vpc: vpc,
+      vpcSubnets: { subnets: vpc.privateSubnets },
+      role: lambdaRoleCron,
+      timeout: cdk.Duration.minutes(15),
+      layers: [pythonLayer, dataLayer],
+      environment: environments,
+    });
+    const cronRule = new events.Rule(this, 'MinutelyCronRule', {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(20)), // events.Schedule.expression('cron(0/1 * * * ? *)'),
+    });
+    cronRule.addTarget(new events_targets.LambdaFunction(cronLambda));
+
     // 生成各模块Policy
     const secretsManagerPolicyStatement = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -238,7 +272,7 @@ export class CloudperfStack extends cdk.Stack {
     })
     const sqsPolicyStatement = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes'],
+      actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes', 'sqs:SendMessage'],
       resources: [fpingQueue.queueArn],
     });
     const sqsPolicy = new iam.Policy(this, stackPrefix + 'policy-Sqs', {
@@ -258,6 +292,11 @@ export class CloudperfStack extends cdk.Stack {
     lambdaRoleQueue.attachInlinePolicy(sqsPolicy);
 
     lambdaRoleWeb.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+
+    lambdaRoleCron.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+    lambdaRoleCron.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
+    lambdaRoleCron.attachInlinePolicy(secretsManagerPolicy);
+    lambdaRoleCron.attachInlinePolicy(sqsPolicy);
 
     // 数据处理流程
     const s3nadmin = new s3n.LambdaDestination(adminLambda);
@@ -288,14 +327,7 @@ export class CloudperfStack extends cdk.Stack {
       destinationBucket: s3Bucket,
     });
 
-    // 对外 api 服务
-    const alb = new elbv2.ApplicationLoadBalancer(this, stackPrefix + 'api-alb', {
-      vpc,
-      internetFacing: true,
-      vpcSubnets: { subnets: vpc.publicSubnets }
-    });
-    alb.logAccessLogs(logBucket, 'alb-logs');
-
+    // alb 配置
     const listener = alb.addListener(stackPrefix + 'api-listener', {
       port: 80,
       open: true
