@@ -102,6 +102,17 @@ export function startMockServer() {
                 lastUpdate: new Date().toISOString()
             }));
 
+            // Statistics endpoint
+            this.get("/statistics", () => ({
+                allasn: Math.floor(Math.random() * 1000 + 5000),
+                allcity: Math.floor(Math.random() * 100 + 300),
+                'ping-stable': Math.floor(Math.random() * 5000 + 15000),
+                'ping-new': Math.floor(Math.random() * 500 + 1000),
+                'ping-loss': Math.floor(Math.random() * 100 + 100),
+                'ping-city': Math.floor(Math.random() * 200 + 800),
+                'stat-pair': Math.floor(Math.random() * 10000 + 50000)
+            }));
+
             // IP info lookup
             this.get("/ipinfo", (schema, request) => {
                 const ip = request.queryParams.ip;

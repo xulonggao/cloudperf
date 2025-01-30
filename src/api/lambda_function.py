@@ -372,6 +372,7 @@ def lambda_handler(event, context):
         '/api/login': webapi_login,
         '/api/runsql': webapi_runsql,
         '/api/redis': webapi_redis,
+        '/api/statistics': webapi_statistics
     }
     if requests['path'] not in apimapping:
         if requests['useragent'].startswith('ELB-HealthChecker/2.0'):

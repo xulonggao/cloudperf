@@ -22,6 +22,7 @@ import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import LogoutIcon from '@mui/icons-material/Logout';
 import BuildIcon from '@mui/icons-material/Build';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
 const drawerWidth = 240;
 
@@ -75,6 +76,7 @@ const menuItems = [
     { text: 'Network Performance', path: '/search', icon: <NetworkCheckIcon /> },
     { text: 'City Sets', path: '/cityset', icon: <GroupWorkIcon /> },
     { text: 'Maintenance', path: '/maintenance', icon: <BuildIcon /> },
+    { text: 'System Status', path: '/status', icon: <AssessmentIcon /> },
 ];
 
 export default function Layout() {
