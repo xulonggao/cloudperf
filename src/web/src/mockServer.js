@@ -110,6 +110,9 @@ export function startMockServer() {
                 'ping-stable': Math.floor(Math.random() * 5000 + 15000),
                 'ping-new': Math.floor(Math.random() * 500 + 1000),
                 'ping-loss': Math.floor(Math.random() * 100 + 100),
+                'cidr-outdate': Math.floor(Math.random() * 200 + 800),
+                'cidr-queue': Math.floor(Math.random() * 200 + 800),
+                'cidr-ready': Math.floor(Math.random() * 200 + 800),
                 'ping-city': Math.floor(Math.random() * 200 + 800),
                 'stat-pair': Math.floor(Math.random() * 10000 + 50000)
             }));

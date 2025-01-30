@@ -267,14 +267,14 @@ def fping_logic(requests):
             stdout = obj['stdout'].split('\n')
             ips = []
             for out in stdout:
-                if out.startswith('[DEBUG]'):
+                if out == '' or out.startswith('[DEBUG]'):
                     continue
                 ips.append(out)
             print(f"jobid: {obj['jobid']} status: {obj['status']} ips: {len(ips)}")
             print(ips)
             if len(ips) > 0:
                 if obj['jobid'].startswith('ping'):
-                    data_layer.update_pingable_result(int(obj['jobid'][4:]), ips)
+                    data_layer.update_pingable_ip(int(obj['jobid'][4:]), ips)
     if requests['useragent'].startswith('fping-pingable'):
         # get ping job here, ensure buffer data enough
         data_layer.refresh_iprange_check()
@@ -286,8 +286,8 @@ def fping_logic(requests):
                 print(f"fetch job: {stip} {etip} {obj['city_id']}")
                 ret["job"].append({
                     "jobid": 'ping' + str(obj['city_id']),
-                    # disable stderr log here with 2> /dev/null
-                    "command": f"fping -g {stip} {etip} -r 2 -a -q 2> /dev/null",
+                    # disable stderr log here with 2> /dev/null , but it will cause error
+                    "command": f"fping -g {stip} {etip} -r 2 -a -q",
                 })
             else:
                 break

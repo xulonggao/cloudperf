@@ -99,7 +99,7 @@ export default function Status() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="New Pings"
+                        title="New Discovery Pings"
                         value={stats['ping-new']}
                         icon={AddIcon}
                     />
@@ -113,21 +113,35 @@ export default function Status() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="City Pings"
+                        title="Ready Cidr"
+                        value={stats['cidr-ready']}
+                        icon={QueueIcon}
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
+                        title="Outdated Cidr"
+                        value={stats['cidr-outdate']}
+                        icon={QueueIcon}
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
+                        title="Cidr Queue"
+                        value={stats['cidr-queue']}
+                        icon={QueueIcon}
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
+                        title="Pingable CityIds"
                         value={stats['ping-city']}
                         icon={LocationCityIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="Ping Queue"
-                        value={stats['ping-queue']}
-                        icon={QueueIcon}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                    <StatCard
-                        title="Stat Pairs"
+                        title="Valid CityId Pairs"
                         value={stats['stat-pair']}
                         icon={CompareArrowsIcon}
                     />
