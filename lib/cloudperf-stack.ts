@@ -8,9 +8,9 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as events from 'aws-cdk-lib/aws-events';
-import * as events_targets from 'aws-cdk-lib/aws-events-targets';
-import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+//import * as events from 'aws-cdk-lib/aws-events';
+//import * as events_targets from 'aws-cdk-lib/aws-events-targets';
+//import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
@@ -107,7 +107,7 @@ export class CloudperfStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    // 创建 fping 任务对了
+    // 创建 fping 任务 //fixme delete if not use
     const fpingQueue = new sqs.Queue(this, stackPrefix + 'fping', {
       queueName: stackPrefix + 'fping',
       visibilityTimeout: cdk.Duration.minutes(15 * 4),
@@ -194,7 +194,7 @@ export class CloudperfStack extends cdk.Stack {
     alb.logAccessLogs(logBucket, 'alb-logs');
 
     // fping 任务队列
-    const lambdaRoleQueue = new iam.Role(this, 'role-queue', {
+    /*const lambdaRoleQueue = new iam.Role(this, 'role-queue', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
     const api_environments = {
@@ -215,7 +215,7 @@ export class CloudperfStack extends cdk.Stack {
       maxBatchingWindow: cdk.Duration.seconds(60),
       maxConcurrency: 10
     });
-    fpingQueueLambda.addEventSource(eventSource);
+    fpingQueueLambda.addEventSource(eventSource);*/
 
     // 对外 web 函数
     // https://github.com/awslabs/aws-lambda-web-adapter/tree/main/examples/nginx-zip
@@ -239,7 +239,7 @@ export class CloudperfStack extends cdk.Stack {
     });
 
     // 定时任务
-    const lambdaRoleCron = new iam.Role(this, 'role-cron', {
+    /*const lambdaRoleCron = new iam.Role(this, 'role-cron', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
     const cronLambda = new lambda.Function(this, 'cron', {
@@ -254,9 +254,9 @@ export class CloudperfStack extends cdk.Stack {
       environment: environments,
     });
     const cronRule = new events.Rule(this, 'MinutelyCronRule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(20)), // events.Schedule.expression('cron(0/1 * * * ? *)'),
+      schedule: events.Schedule.rate(cdk.Duration.minutes(1)), // events.Schedule.expression('cron(0/1 * * * ? *)'),
     });
-    cronRule.addTarget(new events_targets.LambdaFunction(cronLambda));
+    cronRule.addTarget(new events_targets.LambdaFunction(cronLambda));*/
 
     // 生成各模块Policy
     const secretsManagerPolicyStatement = new iam.PolicyStatement({
@@ -270,14 +270,14 @@ export class CloudperfStack extends cdk.Stack {
     const secretsManagerPolicy = new iam.Policy(this, stackPrefix + 'policy-SecretsManager', {
       statements: [secretsManagerPolicyStatement]
     })
-    const sqsPolicyStatement = new iam.PolicyStatement({
+    /*const sqsPolicyStatement = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes', 'sqs:SendMessage'],
       resources: [fpingQueue.queueArn],
     });
     const sqsPolicy = new iam.Policy(this, stackPrefix + 'policy-Sqs', {
       statements: [sqsPolicyStatement]
-    })
+    })*/
     // 各lambda赋予权限
     lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
     lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
@@ -288,15 +288,15 @@ export class CloudperfStack extends cdk.Stack {
     lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3ReadOnlyAccess"));
     lambdaRoleAdmin.attachInlinePolicy(secretsManagerPolicy);
 
-    lambdaRoleQueue.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
-    lambdaRoleQueue.attachInlinePolicy(sqsPolicy);
+    //lambdaRoleQueue.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+    //lambdaRoleQueue.attachInlinePolicy(sqsPolicy);
 
     lambdaRoleWeb.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
 
-    lambdaRoleCron.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
+    /*lambdaRoleCron.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
     lambdaRoleCron.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
     lambdaRoleCron.attachInlinePolicy(secretsManagerPolicy);
-    lambdaRoleCron.attachInlinePolicy(sqsPolicy);
+    lambdaRoleCron.attachInlinePolicy(sqsPolicy);*/
 
     // 数据处理流程
     const s3nadmin = new s3n.LambdaDestination(adminLambda);
