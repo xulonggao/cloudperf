@@ -218,18 +218,21 @@ def mysql_select_onevalue(sql:str, obj = None, default = 0):
 def cache_get(key:str):
     try:
         r = redis.StrictRedis(connection_pool=redis_pool)
-        return r.get(key)
+        ret = r.get(key)
+        if ret:
+            ret = json.loads(ret)
+        return ret
     except Exception as e:
-        print('cache get failed.')
+        print('cache get failed.', repr(e))
         return None
 
 def cache_set(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
     try:
         r = redis.StrictRedis(connection_pool=redis_pool)
         print('cache set:', key, ttl, value)
-        return r.setex(key, ttl, value)
+        return r.setex(key, ttl, json.dumps(value))
     except Exception as e:
-        print('cache set failed.', key, ttl, value)
+        print('cache set failed.', repr(e) , key, ttl, value)
         return None
 
 def cache_delete(key:str):
@@ -238,11 +241,38 @@ def cache_delete(key:str):
         print('cache delete:', key)
         return r.delete(key)
     except Exception as e:
-        print('cache delete failed.', key)
+        print('cache delete failed.', repr(e), key)
         return None
 
+def cache_push(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        return r.rpush(key, json.dumps(value))
+    except Exception as e:
+        print('cache push failed.', repr(e), key, value)
+        return None
+
+def cache_pop(key:str):
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        ret = r.lpop(key)
+        if ret:
+            ret = json.loads(ret)
+        return ret
+    except Exception as e:
+        print('cache pop failed.', repr(e), key)
+        return None
+
+def cache_listlen(key:str):
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        return r.llen(key)
+    except Exception as e:
+        print('cache list len failed.', repr(e), key)
+        return 0
+
 def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE_TTL):
-    key = f'sqlov_{hash(sql)}'
+    key = f'{settings.CACHEKEY_SQL}ov_{hash(sql)}'
     val = cache_get(key)
     if val != None:
         return val
@@ -251,11 +281,11 @@ def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE
     return ret
 
 def delete_mysql_select_cache(sql:str, obj = None, fetchObject = True):
-    key = f'sqlsl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
+    key = f'{settings.CACHEKEY_SQL}sl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
     return cache_delete(key)
 
 def cache_mysql_select(sql:str, obj = None, fetchObject = True, ttl:int = settings.CACHE_BASE_TTL):
-    key = f'sqlsl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
+    key = f'{settings.CACHEKEY_SQL}sl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
     val = cache_get(key)
     if val != None:
         return val
@@ -345,6 +375,28 @@ def update_pingable_result(city_id, start_ip, end_ip):
     mysql_execute('delete from pingable where lastresult=0')
     # 更新 lastcheck_time 时间，避免马上再次检查
     mysql_execute('update iprange set lastcheck_time = CURRENT_TIMESTAMP where city_id=%s and start_ip=%s', (city_id, start_ip))
+
+def update_pingable_ip(city_id, ips):
+    for ip in ips:
+        ipno = ipaddress.IPv4Address(ip)._ip
+        # 128 = 10000000b
+        mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
+
+def query_statistics_data(datas = 'allasn,allcity,ping-stable,ping-new,ping-loss,ping-city,stat-pair'):
+    supports = {
+        'allasn':'select count(1) from asn',
+        'allcity':'select count(1) from city',
+        # 240 = 11110000
+        'ping-stable':'select count(1) from pingable where lastresult>=240',
+        'ping-new':'select count(1) from pingable where lastresult>=128',
+        'ping-loss':'select count(1) from pingable where lastresult<=127',
+        'ping-city':'select count(1) from pingable where lastresult>0 group by city_id',
+        'stat-pair':'select count(1) from statistic group by src_city_id,dist_city_id'
+    }
+    outs = {}
+    for data in datas.split(','):
+        outs[data] = mysql_select_onevalue(supports[data])
+    return outs
 
 def send_sqs_messages_batch(queue_url: str, messages: List[Dict[str, Any]]) -> Dict:
     """
@@ -451,3 +503,49 @@ def split_ip_range(start_ip, end_ip, step = 16384):
         #print(ipaddress.IPv4Address(i), ipaddress.IPv4Address(ei))
         i += step
     return subnets
+
+# 由于 lambda 中 运行 fping 权限不够，所以不使用cron运行了，改为本地运行，因此使用redis队列来传递任务，通过api获取任务
+def refresh_iprange_check(queue_url = ''):
+    max_buffer_cidr = 100
+    if queue_url != '':
+        # 获取队列大小
+        result = data_layer.get_sqs_queue_size(queue_url)
+        print(result)
+        if result['statusCode'] != 200:
+            return {
+                'status': result['statusCode'],
+                'msg': result['error']
+            }
+        len = result['queue_size']['visible_messages']
+    else:
+        # 检查 redis 队列长度
+        len = cache_listlen(settings.CACHEKEY_PINGABLE)
+    if len >= max_buffer_cidr:
+        return {
+            'status': 200,
+            'msg': 'Queue is full, skip this round check'
+        }
+
+    # 检查 iprange 表，根据 lastcheck_time 排序，找出 lastcheck_time < now - 7days 的数据，准备进行更新
+    datas = data_layer.check_expired_iprange(days=14, limit=20)
+    print(datas)
+    # 通过 start_ip end_ip city_id 来更新对应 pingable 表的数据，更新 lastresult 右移1位高位为0，表示这个ip最新数据没有更新了
+    # 检查 pingable 表，删除 lastresult 全为 0 的条目，因为该ip已经连续不可ping了（就算新的任务他又可ping了，重新插入就是）
+    messages = []
+    for data in datas:
+        print(data)
+        data_layer.update_pingable_result(data['city_id'], data['start_ip'], data['end_ip'])
+        subnets = data_layer.split_ip_range(data['start_ip'], data['end_ip'])
+        for subnet in subnets:
+            messages.append({"type": "pingable", "start_ip": subnet[0], "end_ip": subnet[1], "city_id": data['city_id']})
+    # 提交 start_ip end_ip city_id 的 ping 探测任务到 queue 中，queue 陆续完成探测任务时，会去更新对应 ip 的 lastresult 值，把新移位的值置为1000b，不存在的会插入
+    if queue_url != '':
+        result = data_layer.send_sqs_messages_batch(queue_url, messages)
+        print(result)
+    else:
+        for message in messages:
+            result = data_layer.cache_push(settings.CACHEKEY_PINGABLE, message)
+    return {
+        'status': 200,
+        'msg': result
+    }

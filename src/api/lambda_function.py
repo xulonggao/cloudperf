@@ -1,5 +1,7 @@
 import json
+import settings
 import data_layer
+import ipaddress
 from urllib.parse import unquote_plus
 
 def webapi_status(requests):
@@ -11,6 +13,13 @@ def webapi_status(requests):
             "uptime": "97.9",
             "lastUpdate": "2025-01-04T01:53:37.308Z"
         }
+    }
+
+def webapi_statistics(requests):
+    data = data_layer.query_statistics_data()
+    return {
+        'statusCode': 200,
+        'result': data
     }
 
 # //fixme，由于相同asn在同一个城市有多个asn号码，会造成选择cityid时少了，如：RU,Moscow,PJSC Rostelecom
@@ -180,9 +189,30 @@ def webapi_runsql(requests):
 # PUT /api/redis {key: "get", value: "val2"}
 # DELETE /api/redis?key=test
 def webapi_redis(requests):
+    if requests['method'] == 'PUT':
+        data = json.loads(requests['body'])
+        data_layer.cache_set(data['key'], data['value'])
+        return {
+            'statusCode': 200,
+            'result': data['value']
+        }
+    elif requests['method'] == 'GET':
+        if 'key' in requests['query']:
+            value = data_layer.cache_get(requests['query']['key'])
+            return {
+                'statusCode': 200,
+                'result': value
+            }
+    elif requests['method'] == 'DELETE':
+        if 'key' in requests['query']:
+            data_layer.cache_delete(requests['query']['key'])
+            return {
+                'statusCode': 200,
+                'result': "ok"
+            }
     return {
-        'statusCode': 200,
-        'result': "value"
+        'statusCode': 400,
+        'result': "not support method."
     }
 
 # ip=136.227.141.146 2296614290
@@ -227,28 +257,60 @@ def fping_logic(requests):
     ret = {"job":[],"next":"","interval":3600,"status":200}
     if requests['method'] == 'POST':
         jobResult = json.loads(requests['body'])
-    if requests['useragent'].startswith('fping-watchmen'):
-        # get ping job here
-        pass
+        if 'next' in requests['query']:
+            next = requests['query']['next']
+        else:
+            next = ''
+        for obj in jobResult:
+            # obj['status'] = 0 success 256 partial success
+            # obj['stderr'] -> 1.6.81.7 : duplicate for [0], 64 bytes, 468 ms
+            stdout = obj['stdout'].split('\n')
+            ips = []
+            for out in stdout:
+                if out.startswith('[DEBUG]'):
+                    continue
+                ips.append(out)
+            print(f"jobid: {obj['jobid']} status: {obj['status']} ips: {len(ips)}")
+            print(ips)
+            if len(ips) > 0:
+                if obj['jobid'].startswith('ping'):
+                    data_layer.update_pingable_result(int(obj['jobid'][4:]), ips)
+    if requests['useragent'].startswith('fping-pingable'):
+        # get ping job here, ensure buffer data enough
+        data_layer.refresh_iprange_check()
+        for i in range(0, 3):
+            obj = data_layer.cache_pop(settings.CACHEKEY_PINGABLE)
+            if obj:
+                stip = ipaddress.IPv4Address(obj['start_ip'])
+                etip = ipaddress.IPv4Address(obj['end_ip'])
+                print(f"fetch job: {stip} {etip} {obj['city_id']}")
+                ret["job"].append({
+                    "jobid": 'ping' + str(obj['city_id']),
+                    # disable stderr log here with 2> /dev/null
+                    "command": f"fping -g {stip} {etip} -r 2 -a -q 2> /dev/null",
+                })
+            else:
+                break
+        if len(ret["job"]) > 0:
+            ret["next"] = 'pingable'
+            ret["interval"] = 10
     else:
-        pass
-    cityid = data_layer.get_cityid_by_ip(requests['srcip'])
-    if cityid != 0:
+        cityid = data_layer.get_cityobject_by_ip(requests['srcip'])
         print(cityid)
-    ret["job"].append({
-        "jobid": "123-1",
-        "command": "fping -g 8.8.8.5 8.8.8.10 -r 2 -a -q",
-    })
-    ret["job"].append({
-        "jobid": "123-2",
-        "command": "fping -g 1.1.1.0 1.1.1.3 -r 2 -a -q",
-    })
-    ret["job"].append({
-        "jobid": "123-3",
-        "command": "fping -g 110.242.68.1 110.242.68.10 -r 2 -a -q",
-    })
-    ret["next"] = "sfkR1xjer"
-    ret["interval"] = 10
+        ret["job"].append({
+            "jobid": "123-1",
+            "command": "fping -g 8.8.8.5 8.8.8.10 -r 2 -a -q",
+        })
+        ret["job"].append({
+            "jobid": "123-2",
+            "command": "fping -g 1.1.1.0 1.1.1.3 -r 2 -a -q",
+        })
+        ret["job"].append({
+            "jobid": "123-3",
+            "command": "fping -g 110.242.68.1 110.242.68.10 -r 2 -a -q",
+        })
+        ret["next"] = "sfkR1xjer"
+        ret["interval"] = 10
     return {
         'statusCode': 200,
         'result': ret
