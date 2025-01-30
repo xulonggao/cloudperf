@@ -105,7 +105,8 @@ export function startMockServer() {
             // Statistics endpoint
             this.get("/statistics", () => ({
                 allasn: Math.floor(Math.random() * 1000 + 5000),
-                allcity: Math.floor(Math.random() * 100 + 300),
+                allcity: Math.floor(Math.random() * 50 + 100),
+                allcityid: Math.floor(Math.random() * 100 + 300),
                 'ping-stable': Math.floor(Math.random() * 5000 + 15000),
                 'ping-new': Math.floor(Math.random() * 500 + 1000),
                 'ping-loss': Math.floor(Math.random() * 100 + 100),

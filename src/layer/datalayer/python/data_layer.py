@@ -382,10 +382,11 @@ def update_pingable_ip(city_id, ips):
         # 128 = 10000000b
         mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
 
-def query_statistics_data(datas = 'allasn,allcity,ping-city,ping-stable,ping-new,ping-loss,ping-queue,stat-pair'):
+def query_statistics_data(datas = 'allasn,allcity,allcityid,ping-stable,ping-new,ping-loss,ping-city,ping-queue,stat-pair'):
     supports = {
         'allasn':'select count(1) from asn',
-        'allcity':'select count(1) from city',
+        'allcity':'select count(1) from (select country_code,name from city group by country_code,name) as a',
+        'allcityid':'select count(1) from city',
         # 240 = 11110000
         'ping-stable':'select count(1) from pingable where lastresult>=240',
         'ping-new':'select count(1) from pingable where lastresult>=128',

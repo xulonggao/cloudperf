@@ -85,8 +85,8 @@ export default function Status() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="City Pings"
-                        value={stats['ping-city']}
+                        title="Total Cityids"
+                        value={stats.allcityid}
                         icon={LocationCityIcon}
                     />
                 </Grid>
@@ -109,6 +109,13 @@ export default function Status() {
                         title="Lost Pings"
                         value={stats['ping-loss']}
                         icon={ErrorIcon}
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
+                        title="City Pings"
+                        value={stats['ping-city']}
+                        icon={LocationCityIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
