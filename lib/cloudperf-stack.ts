@@ -160,7 +160,7 @@ export class CloudperfStack extends cdk.Stack {
       vpc: vpc,
       vpcSubnets: { subnets: vpc.privateSubnets },
       role: lambdaRoleApi,
-      timeout: cdk.Duration.minutes(1),
+      timeout: cdk.Duration.minutes(5),
       layers: [pythonLayer, dataLayer],
       environment: environments,
       securityGroups: [sg],

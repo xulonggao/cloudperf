@@ -71,23 +71,23 @@ export default function Status() {
             <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="Total ASNs"
-                        value={stats.allasn}
+                        title="Total Countrys"
+                        value={stats['all-country']}
                         icon={StorageIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Total Cities"
-                        value={stats.allcity}
+                        value={stats['all-city']}
                         icon={LocationCityIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="Total Cityids"
-                        value={stats.allcityid}
-                        icon={LocationCityIcon}
+                        title="Total ASNs"
+                        value={stats['all-asn']}
+                        icon={StorageIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
@@ -115,14 +115,14 @@ export default function Status() {
                     <StatCard
                         title="Ready Cidr"
                         value={stats['cidr-ready']}
-                        icon={QueueIcon}
+                        icon={SignalCellularAltIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Outdated Cidr"
-                        value={stats['cidr-outdate']}
-                        icon={QueueIcon}
+                        value={stats['cidr-outdated']}
+                        icon={ErrorIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
@@ -134,15 +134,22 @@ export default function Status() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
+                        title="Total Cityids"
+                        value={stats['cityid-all']}
+                        icon={LocationCityIcon}
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
                         title="Pingable CityIds"
-                        value={stats['ping-city']}
+                        value={stats['cityid-ping']}
                         icon={LocationCityIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Valid CityId Pairs"
-                        value={stats['stat-pair']}
+                        value={stats['cityid-pair']}
                         icon={CompareArrowsIcon}
                     />
                 </Grid>

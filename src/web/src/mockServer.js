@@ -104,17 +104,18 @@ export function startMockServer() {
 
             // Statistics endpoint
             this.get("/statistics", () => ({
-                allasn: Math.floor(Math.random() * 1000 + 5000),
-                allcity: Math.floor(Math.random() * 50 + 100),
-                allcityid: Math.floor(Math.random() * 100 + 300),
+                'all-country': Math.floor(Math.random() * 50 + 100),
+                'all-city': Math.floor(Math.random() * 100 + 200),
+                'all-asn': Math.floor(Math.random() * 1000 + 5000),
                 'ping-stable': Math.floor(Math.random() * 5000 + 15000),
                 'ping-new': Math.floor(Math.random() * 500 + 1000),
                 'ping-loss': Math.floor(Math.random() * 100 + 100),
-                'cidr-outdate': Math.floor(Math.random() * 200 + 800),
-                'cidr-queue': Math.floor(Math.random() * 200 + 800),
                 'cidr-ready': Math.floor(Math.random() * 200 + 800),
-                'ping-city': Math.floor(Math.random() * 200 + 800),
-                'stat-pair': Math.floor(Math.random() * 10000 + 50000)
+                'cidr-outdated': Math.floor(Math.random() * 200 + 800),
+                'cidr-queue': Math.floor(Math.random() * 200 + 800),
+                'cityid-all': Math.floor(Math.random() * 100 + 300),
+                'cityid-ping': Math.floor(Math.random() * 200 + 800),
+                'cityid-pair': Math.floor(Math.random() * 10000 + 50000)
             }));
 
             // IP info lookup

@@ -382,21 +382,27 @@ def update_pingable_ip(city_id, ips):
         # 128 = 10000000b
         mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
 
-# 已知asn数量，已知city数量，已知cityid数量，稳定可ping数量，新增可ping数量，最近不可ping数量，可ping的cityid数量，可用cidr数量，过期cidr数量，正在检查cidr队列长度，有数据的cityid pair数量
-def query_statistics_data(datas = 'allasn,allcity,allcityid,ping-stable,ping-new,ping-loss,ping-city,cidr-ready,cidr-outdate,cidr-queue,stat-pair'):
+# 已知国家数量，已知city数量，已知asn数量
+# 稳定可ping数量，新增可ping数量，最近不可ping数量
+# 可用cidr数量，过期cidr数量，cidr队列长度
+# 已知cityid数量，可ping的cityid数量，有数据的cityid pair数量
+def query_statistics_data(datas = 'all-country,all-city,all-asn,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue,cityid-all,cityid-ping,cityid-pair'):
     supports = {
-        'allasn':'select count(1) from asn',
-        'allcity':'select count(1) from (select country_code,name from city group by country_code,name) as a',
-        'allcityid':'select count(1) from city',
+        'all-country':'select count(1) from country',
+        'all-city':'select count(1) from (select country_code,name from city group by country_code,name) as a',
+        'all-asn':'select count(1) from asn',
         # 240 = 11110000
         'ping-stable':'select count(1) from pingable where lastresult>=240',
         'ping-new':'select count(1) from pingable where lastresult>=128',
         'ping-loss':'select count(1) from pingable where lastresult<=127',
-        'ping-city':'select count(1) from (select city_id from pingable where lastresult>0 group by city_id) as a',
+
         'cidr-ready':'select count(1) from iprange where lastcheck_time >= date_sub(now(), interval 14 day)',
-        'cidr-outdate':'select count(1) from iprange where lastcheck_time < date_sub(now(), interval 14 day)',
+        'cidr-outdated':'select count(1) from iprange where lastcheck_time < date_sub(now(), interval 14 day)',
         'cidr-queue':'',
-        'stat-pair':'select count(1) from (select src_city_id,dist_city_id from statistics group by src_city_id,dist_city_id) as a'
+
+        'cityid-all':'select count(1) from city',
+        'cityid-ping':'select count(1) from (select city_id from pingable where lastresult>0 group by city_id) as a',
+        'cityid-pair':'select count(1) from (select src_city_id,dist_city_id from statistics group by src_city_id,dist_city_id) as a'
     }
     outs = {}
     for data in datas.split(','):

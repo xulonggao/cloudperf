@@ -278,7 +278,7 @@ def fping_logic(requests):
     if requests['useragent'].startswith('fping-pingable'):
         # get ping job here, ensure buffer data enough
         data_layer.refresh_iprange_check()
-        for i in range(0, 3):
+        for i in range(0, 10):
             obj = data_layer.cache_pop(settings.CACHEKEY_PINGABLE)
             if obj:
                 stip = ipaddress.IPv4Address(obj['start_ip'])
@@ -293,7 +293,7 @@ def fping_logic(requests):
                 break
         if len(ret["job"]) > 0:
             ret["next"] = 'pingable'
-            ret["interval"] = 10
+            ret["interval"] = 1
     else:
         cityid = data_layer.get_cityobject_by_ip(requests['srcip'])
         print(cityid)
