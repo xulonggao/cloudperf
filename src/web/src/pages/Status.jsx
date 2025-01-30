@@ -6,6 +6,7 @@ import SignalCellularAltIcon from '@mui/icons-material/SignalCellularAlt';
 import AddIcon from '@mui/icons-material/Add';
 import ErrorIcon from '@mui/icons-material/Error';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import QueueIcon from '@mui/icons-material/Queue';
 
 const StatCard = ({ title, value, icon: Icon }) => (
     <Paper
@@ -35,6 +36,7 @@ export default function Status() {
         'ping-new': 0,
         'ping-loss': 0,
         'ping-city': 0,
+        'ping-queue': 0,
         'stat-pair': 0,
     });
 
@@ -83,6 +85,13 @@ export default function Status() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
+                        title="City Pings"
+                        value={stats['ping-city']}
+                        icon={LocationCityIcon}
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
                         title="Stable Pings"
                         value={stats['ping-stable']}
                         icon={SignalCellularAltIcon}
@@ -104,9 +113,9 @@ export default function Status() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="City Pings"
-                        value={stats['ping-city']}
-                        icon={LocationCityIcon}
+                        title="Ping Queue"
+                        value={stats['ping-queue']}
+                        icon={QueueIcon}
                     />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>

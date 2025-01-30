@@ -382,7 +382,7 @@ def update_pingable_ip(city_id, ips):
         # 128 = 10000000b
         mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
 
-def query_statistics_data(datas = 'allasn,allcity,ping-stable,ping-new,ping-loss,ping-city,stat-pair'):
+def query_statistics_data(datas = 'allasn,allcity,ping-city,ping-stable,ping-new,ping-loss,ping-queue,stat-pair'):
     supports = {
         'allasn':'select count(1) from asn',
         'allcity':'select count(1) from city',
@@ -390,12 +390,15 @@ def query_statistics_data(datas = 'allasn,allcity,ping-stable,ping-new,ping-loss
         'ping-stable':'select count(1) from pingable where lastresult>=240',
         'ping-new':'select count(1) from pingable where lastresult>=128',
         'ping-loss':'select count(1) from pingable where lastresult<=127',
-        'ping-city':'select count(1) from pingable where lastresult>0 group by city_id',
-        'stat-pair':'select count(1) from statistic group by src_city_id,dist_city_id'
+        'ping-city':'select count(1) from (select city_id from pingable where lastresult>0 group by city_id) as a',
+        'stat-pair':'select count(1) from (select src_city_id,dist_city_id from statistics group by src_city_id,dist_city_id) as a'
     }
     outs = {}
     for data in datas.split(','):
-        outs[data] = mysql_select_onevalue(supports[data])
+        if data == 'ping-queue':
+            outs[data] = cache_listlen(settings.CACHEKEY_PINGABLE)
+        else:
+            outs[data] = mysql_select_onevalue(supports[data])
     return outs
 
 def send_sqs_messages_batch(queue_url: str, messages: List[Dict[str, Any]]) -> Dict:
@@ -509,7 +512,7 @@ def refresh_iprange_check(queue_url = ''):
     max_buffer_cidr = 100
     if queue_url != '':
         # 获取队列大小
-        result = data_layer.get_sqs_queue_size(queue_url)
+        result = get_sqs_queue_size(queue_url)
         print(result)
         if result['statusCode'] != 200:
             return {
@@ -527,24 +530,24 @@ def refresh_iprange_check(queue_url = ''):
         }
 
     # 检查 iprange 表，根据 lastcheck_time 排序，找出 lastcheck_time < now - 7days 的数据，准备进行更新
-    datas = data_layer.check_expired_iprange(days=14, limit=20)
+    datas = check_expired_iprange(days=14, limit=20)
     print(datas)
     # 通过 start_ip end_ip city_id 来更新对应 pingable 表的数据，更新 lastresult 右移1位高位为0，表示这个ip最新数据没有更新了
     # 检查 pingable 表，删除 lastresult 全为 0 的条目，因为该ip已经连续不可ping了（就算新的任务他又可ping了，重新插入就是）
     messages = []
     for data in datas:
         print(data)
-        data_layer.update_pingable_result(data['city_id'], data['start_ip'], data['end_ip'])
-        subnets = data_layer.split_ip_range(data['start_ip'], data['end_ip'])
+        update_pingable_result(data['city_id'], data['start_ip'], data['end_ip'])
+        subnets = split_ip_range(data['start_ip'], data['end_ip'])
         for subnet in subnets:
             messages.append({"type": "pingable", "start_ip": subnet[0], "end_ip": subnet[1], "city_id": data['city_id']})
     # 提交 start_ip end_ip city_id 的 ping 探测任务到 queue 中，queue 陆续完成探测任务时，会去更新对应 ip 的 lastresult 值，把新移位的值置为1000b，不存在的会插入
     if queue_url != '':
-        result = data_layer.send_sqs_messages_batch(queue_url, messages)
+        result = send_sqs_messages_batch(queue_url, messages)
         print(result)
     else:
         for message in messages:
-            result = data_layer.cache_push(settings.CACHEKEY_PINGABLE, message)
+            result = cache_push(settings.CACHEKEY_PINGABLE, message)
     return {
         'status': 200,
         'msg': result
