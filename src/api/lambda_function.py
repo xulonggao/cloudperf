@@ -242,6 +242,13 @@ def webapi_asninfo(requests):
         'result': citys
     }
 
+def is_ip_address(ip_string):
+    try:
+        ipaddress.ip_address(ip_string)
+        return True
+    except ValueError:
+        return False
+
 '''
 requests: {
     version: "apigw-httpapi2.0",
@@ -267,9 +274,11 @@ def fping_logic(requests):
             stdout = obj['stdout'].split('\n')
             ips = []
             for out in stdout:
+                # Enough hosts reachable (required: 100, reachable: 100)
                 if out == '' or out.startswith('[DEBUG]'):
                     continue
-                ips.append(out)
+                if is_ip_address(out):
+                    ips.append(out)
             print(f"jobid: {obj['jobid']} status: {obj['status']} ips: {len(ips)}")
             print(ips)
             if len(ips) > 0:
@@ -287,7 +296,8 @@ def fping_logic(requests):
                 ret["job"].append({
                     "jobid": 'ping' + str(obj['city_id']),
                     # disable stderr log here with 2> /dev/null , but it will cause error
-                    "command": f"fping -g {stip} {etip} -r 2 -a -q",
+                    # only found 100 max pingable ip to save time
+                    "command": f"fping -g {stip} {etip} -r 2 -a -q -X 100",
                 })
             else:
                 break
