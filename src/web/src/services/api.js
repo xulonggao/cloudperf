@@ -95,10 +95,10 @@ export const fetchLatencyData = async (cityIds = []) => {
     }
 };
 
-export const fetchCountries = async (query = '') => {
+export const fetchCountries = async (cityset = '') => {
     try {
         const params = new URLSearchParams();
-        if (query) params.append('q', query);
+        if (cityset) params.append('cityset', cityset);
         const response = await fetchWithTimeout(
             `${API_BASE_URL}/country?${params.toString()}`
         );
@@ -112,10 +112,10 @@ export const fetchCountries = async (query = '') => {
     }
 };
 
-export const fetchCities = async (country = '', query = '') => {
+export const fetchCities = async (country = '', cityset = '') => {
     try {
         const params = new URLSearchParams();
-        if (query) params.append('q', query);
+        if (cityset) params.append('cityset', cityset);
         if (country) params.append('country', country);
         const response = await fetchWithTimeout(
             `${API_BASE_URL}/city?${params.toString()}`
@@ -278,10 +278,10 @@ export const deleteRedisKey = async (key) => {
     }
 };
 
-export const fetchAsns = async (country = '', city = '', query = '') => {
+export const fetchAsns = async (country = '', city = '', cityset = '') => {
     try {
         const params = new URLSearchParams();
-        if (query) params.append('q', query);
+        if (cityset) params.append('cityset', cityset);
         if (country) params.append('country', country);
         if (city) params.append('city', city);
         const response = await fetchWithTimeout(

@@ -295,7 +295,15 @@ def cache_mysql_select(sql:str, obj = None, fetchObject = True, ttl:int = settin
     cache_set(key, ret, ttl)
     return ret
 
-def get_countrys():
+def get_countrys(cityset:int=0):
+    if cityset != 0:
+        return cache_mysql_select('''select code,name from country where code in
+(
+    select country_code from city where id in (
+        select dist_city_id from statistics where FIND_IN_SET(src_city_id,
+        (SELECT cityids FROM cityset WHERE id = %s))
+    ) group by country_code
+)''', (cityset,))
     return cache_mysql_select('select code,name from country order by code', ttl=settings.CACHE_LONG_TTL)
 
 def get_citys_by_country_code(country_code):

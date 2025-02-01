@@ -50,6 +50,7 @@ export default function NetworkSearch() {
     const [citySets, setCitySets] = useState([]);
     const [selectedSet, setSelectedSet] = useState('');
     const [countries, setCountries] = useState([]);
+    const [distCountries, setDistCountries] = useState([]);
     const [selectedCountry, setSelectedCountry] = useState('');
     const [cities, setCities] = useState([]);
     const [selectedCity, setSelectedCity] = useState('');
@@ -76,12 +77,25 @@ export default function NetworkSearch() {
                 ]);
                 setCitySets(setsData);
                 setCountries(countriesData);
+                setDistCountries(countriesData);
             } catch (error) {
                 console.error('Error fetching initial data:', error);
             }
         };
         fetchInitialData();
     }, []);
+
+    useEffect(() => {
+        // Fetch countries when city sets is selected
+        if (selectedSet) {
+            setSelectedCity(''); // Reset city when country changes
+            fetchCountries(selectedSet)
+                .then(data => setDistCountries(data))
+                .catch(error => console.error('Error fetching dist countries:', error));
+        } else {
+            setDistCountries(countries);
+        }
+    }, [selectedSet]);
 
     // Fetch cities when country is selected
     useEffect(() => {
@@ -113,7 +127,7 @@ export default function NetworkSearch() {
         setSelectedDestAsns([]); // Reset dest ASNs when country changes or country is cleared
         if (destCountry) {
             setDestCity(''); // Reset dest city when country changes
-            fetchCities(destCountry)
+            fetchCities(destCountry, selectedSet)
                 .then(data => setDestCities(data))
                 .catch(error => console.error('Error fetching destination cities:', error));
         } else {
@@ -124,7 +138,7 @@ export default function NetworkSearch() {
     useEffect(() => {
         setSelectedDestAsns([]); // Reset selected dest ASNs when city changes or city is cleared
         if (destCountry && destCity) {
-            fetchAsns(destCountry, destCity)
+            fetchAsns(destCountry, destCity, selectedSet)
                 .then(data => setDestAsns(data))
                 .catch(error => console.error('Error fetching destination ASNs:', error));
         } else {
@@ -233,9 +247,9 @@ export default function NetworkSearch() {
                             Destination Selection
                         </Typography>
                         <Autocomplete
-                            options={countries}
+                            options={distCountries}
                             getOptionLabel={(option) => option.name}
-                            value={countries.find(c => c.code === destCountry) || null}
+                            value={distCountries.find(c => c.code === destCountry) || null}
                             onChange={(_, newValue) => setDestCountry(newValue?.code || '')}
                             renderInput={(params) => (
                                 <TextField {...params} label="Country" fullWidth sx={{ mb: 2 }} />

@@ -135,7 +135,10 @@ def webapi_asn(requests):
     }
 
 def webapi_country(requests):
-    countrys = data_layer.get_countrys()
+    cityset = 0
+    if 'cityset' in requests['query']:
+        cityset = int(requests['query']['cityset'])
+    countrys = data_layer.get_countrys(cityset)
     return {
         'statusCode': 200,
         'result': countrys
