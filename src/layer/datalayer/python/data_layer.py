@@ -295,7 +295,7 @@ def cache_mysql_select(sql:str, obj = None, fetchObject = True, ttl:int = settin
     cache_set(key, ret, ttl)
     return ret
 
-def get_countrys(cityset:int=0):
+def get_countrys(cityset:int = 0):
     if cityset != 0:
         return cache_mysql_select('''select code,name from country where code in
 (
@@ -306,9 +306,15 @@ def get_countrys(cityset:int=0):
 )''', (cityset,))
     return cache_mysql_select('select code,name from country order by code', ttl=settings.CACHE_LONG_TTL)
 
-def get_citys_by_country_code(country_code):
+def get_citys_by_country_code(country_code, cityset:int = 0):
+    if cityset != 0:
+        return cache_mysql_select('''SELECT name as id,name,latitude,longitude FROM city WHERE country_code = %s and id in
+(
+    select dist_city_id from statistics where FIND_IN_SET(src_city_id,
+    (SELECT cityids FROM cityset WHERE id = %s))
+) group by name''', (country_code,cityset))
     return cache_mysql_select(
-        'SELECT name as id,name,latitude,longitude FROM city WHERE country_code = %s GROUP BY name', (country_code,))
+        'SELECT name as id,name,latitude,longitude FROM city WHERE country_code = %s group by name', (country_code,))
 
 def get_cityobject(filter:str, obj = None, limit:int = 50):
     return cache_mysql_select('''
@@ -320,7 +326,13 @@ a.type as asnType,a.ipcounts as ipcounts,
 INET_NTOA(i.start_ip) as startIp, INET_NTOA(i.end_ip) as endIp from city as c, asn as a,iprange as i
  where c.id = i.city_id and c.asn=a.asn and ''' + filter + f' limit {limit}', obj)
 
-def get_asns_by_country_city(country_code, city_name):
+def get_asns_by_country_city(country_code, city_name, cityset:int = 0):
+    if cityset != 0:
+        return get_cityobject('''c.country_code = %s and c.name = %s and c.id in
+(
+    select dist_city_id from statistics where FIND_IN_SET(src_city_id,
+    (SELECT cityids FROM cityset WHERE id = %s))
+) group by c.id,c.asn''',(country_code,city_name,cityset))
     return get_cityobject("c.country_code = %s and c.name = %s group by c.id,c.asn",(country_code,city_name,))
 
 def get_cityobject_by_ip(ip:str):

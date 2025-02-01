@@ -125,10 +125,13 @@ def webapi_login(requests):
 
 # country=US&city=US-NYC
 def webapi_asn(requests):
+    cityset = 0
+    if 'cityset' in requests['query']:
+        cityset = int(requests['query']['cityset'])
     asns = []
     if 'country' in requests['query'] and len(requests['query']['country']) >= 2:
         if 'city' in requests['query'] and len(requests['query']['city']) >= 2:
-            asns = data_layer.get_asns_by_country_city(requests['query']['country'], requests['query']['city'])
+            asns = data_layer.get_asns_by_country_city(requests['query']['country'], requests['query']['city'], cityset)
     return {
         'statusCode': 200,
         'result': asns
@@ -147,8 +150,11 @@ def webapi_country(requests):
 # country=CN
 def webapi_city(requests):
     result = []
+    cityset = 0
+    if 'cityset' in requests['query']:
+        cityset = int(requests['query']['cityset'])
     if 'country' in requests['query'] and len(requests['query']['country']) >= 2:
-        result = data_layer.get_citys_by_country_code(requests['query']['country'])
+        result = data_layer.get_citys_by_country_code(requests['query']['country'], cityset)
     return {
         'statusCode': 200,
         'result': result
