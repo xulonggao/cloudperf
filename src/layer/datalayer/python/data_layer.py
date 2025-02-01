@@ -391,11 +391,10 @@ def update_pingable_ip(city_id, ips):
         mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
 
 def update_statistics_data(datas):
-    return mysql_execute('''INSERT INTO `statistics`
-(src_city_id,dist_city_id,samples,latency_min,latency_max,latency_avg,
+    return mysql_execute('''INSERT INTO `statistics`(src_city_id,dist_city_id,samples,latency_min,latency_max,latency_avg,
 latency_p50,latency_p70,latency_p90,latency_p95)
 VALUES(%(src_city_id)s,%(dist_city_id)s,%(samples)s,%(latency_min)s,%(latency_max)s,%(latency_avg)s,
-%(latency_p50)s,%(latency_p70)s,%(latency_p90)s,%(latency_p95)s)')''',datas)
+%(latency_p50)s,%(latency_p70)s,%(latency_p90)s,%(latency_p95)s)''',datas)
 
 def friendly_intval(sec:int):
     if sec > 86400:
@@ -407,7 +406,7 @@ def friendly_intval(sec:int):
     elif sec == 0:
         msg = "just now"
     else:
-        msg = f"{sec} secs ago"
+        msg = f"{sec:.1f} secs ago"
     return msg
 
 # 已知国家数量，已知city数量，已知asn数量
@@ -657,3 +656,19 @@ def get_pingjob_by_cityid(src_city_id:int):
 def update_client_status(ip:str, agent:str):
     tracker = OnlineIPTracker(redis_pool, settings.CACHEKEY_ONLINE_SERVERS + agent)
     tracker.update_ip(ip)
+
+# 计算数组的 Pxx 取值
+# 该函数可以使用 np.percentile(sorted_data, 75) 代替，只是npmpy库太大
+# 要求 sorted_data 是已排序列表，p: 分位数 (0-100)
+def np_percentile(sorted_data, p, accurate = False):
+    if not sorted_data:
+        return None
+    n = len(sorted_data)
+    rank = p / 100.0 * (n - 1)
+    index_floor = int(rank)
+    index_ceil = min(index_floor + 1, n - 1)
+    if index_floor == index_ceil or accurate == False:
+        return float(sorted_data[index_floor])
+    # 如果p指向是两个元素之间，进行线性插值精确结果
+    fraction = rank - index_floor
+    return sorted_data[index_floor] * (1 - fraction) + sorted_data[index_ceil] * fraction

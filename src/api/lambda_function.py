@@ -2,7 +2,6 @@ import json
 import settings
 import data_layer
 import ipaddress
-import numpy as np
 from urllib.parse import unquote_plus
 
 def webapi_status(requests):
@@ -305,20 +304,24 @@ def fping_logic(requests):
                             samples.append(float(data))
                         except ValueError:
                             pass
-                arr = np.array(samples)
-                datas = {
-                    'src_city_id': city_id,
-                    'dist_city_id': jobid,
-                    'samples': len(arr),
-                    'latency_min': np.min(arr),
-                    'latency_max': np.max(arr),
-                    'latency_avg': np.mean(arr),
-                    'latency_p50': np.percentile(arr, 50),
-                    'latency_p70': np.percentile(arr, 70),
-                    'latency_p90': np.percentile(arr, 90),
-                    'latency_p95': np.percentile(arr, 95)
-                }
-                data_layer.update_statistics_data(datas)
+                n = len(samples)
+                if len(samples)>0:
+                    # numpy 库太大了，这里简单实现一下
+                    # arr = np.array(samples)
+                    sorted_data = sorted(samples)
+                    datas = {
+                        'src_city_id': city_id,
+                        'dist_city_id': jobid,
+                        'samples': n,
+                        'latency_min': int(sorted_data[0] * 1000), #min(samples), #np.min(arr),
+                        'latency_max': int(sorted_data[n-1] * 1000), #max(samples), #np.max(arr),
+                        'latency_avg': int(sum(sorted_data) * 1000 / n), #np.mean(arr),
+                        'latency_p50': int(data_layer.np_percentile(sorted_data, 50) * 1000), #np.percentile(arr, 50),
+                        'latency_p70': int(data_layer.np_percentile(sorted_data, 70) * 1000), #np.percentile(arr, 70),
+                        'latency_p90': int(data_layer.np_percentile(sorted_data, 90) * 1000), #np.percentile(arr, 90),
+                        'latency_p95': int(data_layer.np_percentile(sorted_data, 95) * 1000), #np.percentile(arr, 95),
+                    }
+                    data_layer.update_statistics_data(datas)
     if requests['useragent'].startswith('fping-pingable'):
         data_layer.update_client_status(requests['srcip'], 'ping')
         # get ping job here, ensure buffer data enough
