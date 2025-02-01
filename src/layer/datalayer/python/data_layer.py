@@ -391,7 +391,7 @@ def update_statistics_data(jobid, datas):
 # 稳定可ping数量，新增可ping数量，最近不可ping数量
 # 可用cidr数量，过期cidr数量，cidr队列长度
 # 已知cityid数量，可ping的cityid数量，有数据的cityid pair数量
-def query_statistics_data(datas = 'all-country,all-city,all-asn,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue,cityid-all,cityid-ping,cityid-pair'):
+def query_statistics_data(datas = 'all-country,all-city,all-asn,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue,cityid-all,cityid-ping,cityid-pair,ping-clients,data-clients'):
     supports = {
         'all-country':'select count(1) from country',
         'all-city':'select count(1) from (select country_code,name from city group by country_code,name) as a',
@@ -413,6 +413,18 @@ def query_statistics_data(datas = 'all-country,all-city,all-asn,ping-stable,ping
     for data in datas.split(','):
         if data == 'cidr-queue':
             outs[data] = cache_listlen(settings.CACHEKEY_PINGABLE)
+        elif data == 'ping-clients' or data == 'data-clients':
+            ping_tracker = OnlineIPTracker(data[:4])
+            ping_clients = []
+            for ip, timestamp in ping_tracker.get_online_ips():
+                city = data_layer.get_cityobject_by_ip(ip.decode('utf-8'))
+                if city and len(city) > 0:
+                    ping_clients.append({
+                        'ip': ip.decode('utf-8'),
+                        'region': f"{city[0]['country']}, {city[0]['name']}",
+                        'status': f"{int((time.time() - timestamp) / 60)}分钟前"
+                    })
+            outs[data] = ping_clients
         else:
             outs[data] = mysql_select_onevalue(supports[data])
     return outs

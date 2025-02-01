@@ -115,7 +115,17 @@ export function startMockServer() {
                 'cidr-queue': Math.floor(Math.random() * 200 + 800),
                 'cityid-all': Math.floor(Math.random() * 100 + 300),
                 'cityid-ping': Math.floor(Math.random() * 200 + 800),
-                'cityid-pair': Math.floor(Math.random() * 10000 + 50000)
+                'cityid-pair': Math.floor(Math.random() * 10000 + 50000),
+                'ping-clients': Array.from({ length: 5 }, (_, i) => ({
+                    ip: `192.168.1.${i + 1}`,
+                    region: "US",
+                    status: "online"
+                })),
+                'data-clients': Array.from({ length: 5 }, (_, i) => ({
+                    ip: `192.168.2.${i + 1}`,
+                    region: "CN",
+                    status: "offline"
+                }))
             }));
 
             // IP info lookup
