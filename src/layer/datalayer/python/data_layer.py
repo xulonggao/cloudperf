@@ -3,6 +3,7 @@ import pymysql
 import redis
 import re
 import json
+import time
 import settings
 import boto3
 from onlineip_tracker import OnlineIPTracker
@@ -318,6 +319,12 @@ def get_cityobject_by_ip(ip:str):
     ipno = ipaddress.IPv4Address(ip)._ip
     return get_cityobject("i.start_ip<=%s and i.end_ip>=%s group by c.id", (ipno,ipno))
 
+def get_cityid_by_ip(ip:str):
+    cityobj = get_cityobject_by_ip(ip)
+    if cityobj == None or len(cityobj) == 0:
+        return 0
+    return cityobj[0]['cityId']
+
 def get_cityobject_by_id(id:int):
     return get_cityobject("c.id=%s group by c.id",(id,),limit=1)
 
@@ -383,9 +390,25 @@ def update_pingable_ip(city_id, ips):
         # 128 = 10000000b
         mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
 
-def update_statistics_data(jobid, datas):
-    pass
-    #mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
+def update_statistics_data(datas):
+    return mysql_execute('''INSERT INTO `statistics`
+(src_city_id,dist_city_id,samples,latency_min,latency_max,latency_avg,
+latency_p50,latency_p70,latency_p90,latency_p95)
+VALUES(%(src_city_id)s,%(dist_city_id)s,%(samples)s,%(latency_min)s,%(latency_max)s,%(latency_avg)s,
+%(latency_p50)s,%(latency_p70)s,%(latency_p90)s,%(latency_p95)s)')''',datas)
+
+def friendly_intval(sec:int):
+    if sec > 86400:
+        msg = f"{int(sec / 86400)} days ago"
+    elif sec > 3600:
+        msg = f"{int(sec / 3600)} hours ago"
+    elif sec > 60:
+        msg = f"{int(sec / 60)} mins ago"
+    elif sec == 0:
+        msg = "just now"
+    else:
+        msg = f"{sec} secs ago"
+    return msg
 
 # 已知国家数量，已知city数量，已知asn数量
 # 稳定可ping数量，新增可ping数量，最近不可ping数量
@@ -414,15 +437,19 @@ def query_statistics_data(datas = 'all-country,all-city,all-asn,ping-stable,ping
         if data == 'cidr-queue':
             outs[data] = cache_listlen(settings.CACHEKEY_PINGABLE)
         elif data == 'ping-clients' or data == 'data-clients':
-            ping_tracker = OnlineIPTracker(data[:4])
+            ping_tracker = OnlineIPTracker(redis_pool, settings.CACHEKEY_ONLINE_SERVERS + data[:4])
             ping_clients = []
             for ip, timestamp in ping_tracker.get_online_ips():
-                city = data_layer.get_cityobject_by_ip(ip.decode('utf-8'))
+                city = get_cityobject_by_ip(ip)
                 if city and len(city) > 0:
+                    msg = friendly_intval(time.time() - timestamp)
+                    if data == 'data-clients':
+                        msg += ', Queue: ' + str(cache_listlen(settings.CACHEKEY_CITYJOB + str(city[0]['cityId'])))
                     ping_clients.append({
-                        'ip': ip.decode('utf-8'),
-                        'region': f"{city[0]['country']}, {city[0]['name']}",
-                        'status': f"{int((time.time() - timestamp) / 60)}分钟前"
+                        'ip': ip,
+                        #'region': f"{city[0]['country']}, {city[0]['name']}",
+                        'region': f"{city[0]['name']} (ASN{city[0]['asn']})",
+                        'status': msg
                     })
             outs[data] = ping_clients
         else:
@@ -582,41 +609,51 @@ def refresh_iprange_check(queue_url = ''):
     }
 
 # 根据不同的source city，获取需要ping的任务
-def get_pingjob_by_src_ip(src_ip:str):
+def get_pingjob_by_cityid(src_city_id:int):
     last_city_id = 0
-    cityobj = get_cityobject_by_ip(src_ip)
-    if cityobj == None or len(cityobj) == 0:
+    return_city_id = 0
+    if src_city_id == 0:
         return None
-    src_city_id = cityobj[0]['cityId']
     # 在redis中先查找有没有已经缓存的数据
     data = cache_pop(settings.CACHEKEY_CITYJOB + str(src_city_id))
     if data:
         # 先判断 data 是否为 int，如果是，表示需要从数据库找到下一批城市id，然后再次缓存到redis中
         if not isinstance(data, int):
-            return data
-        # 如果是 int，说明缓存中已经没有数据了，需要从数据库中查询，然后再缓存到redis中
-        last_city_id = data
+            return_city_id = data['city_id']
+        else:
+            # 如果是 int，说明缓存中已经没有数据了，需要从数据库中查询，然后再缓存到redis中
+            last_city_id = data
     # 如果没有数据了，从数据库中查询，然后缓存到redis中
-    ipdatas = mysql_select('select city_id,ip from (SELECT city_id,lastresult,ip FROM pingable where city_id>%s and lastresult>=128 GROUP BY city_id,lastresult desc limit 20) as a group by city_id order by city_id', (last_city_id,))
-    if ipdatas == None or len(ipdatas) == 0:
-        # 如果没有数据了，从头开始查询
-        if last_city_id != 0:
-            ipdatas = mysql_select('select city_id,ip from (SELECT city_id,lastresult,ip FROM pingable where city_id>0 and lastresult>=128 GROUP BY city_id,lastresult desc limit 20) as a group by city_id order by city_id')
-    data = None
-    # 如果都没有数据，则返回 None
-    if ipdatas != None and len(ipdatas)>0:
-        for ipdata in ipdatas:
-            if data == None:
-                data = ipdata
-            else:
-                cache_push(settings.CACHEKEY_CITYJOB + str(src_city_id), ipdata)
-            last_city_id = ipdata['city_id']
-        # 缓存最后一个 city_id，用于缓存取光后，继续下次的查询
-        cache_push(settings.CACHEKEY_CITYJOB + str(src_city_id), last_city_id)
-        print(f'got {len(ipdatas)} cityids with {src_city_id} last_id {last_city_id}')
-    return data
+    if return_city_id == 0:
+        sql = 'SELECT city_id FROM pingable where city_id>%s and lastresult>=128 GROUP BY city_id limit 20'
+        ipdatas = mysql_select(sql, (last_city_id,))
+        if ipdatas == None or len(ipdatas) == 0:
+            # 如果没有数据了，从头开始查询
+            if last_city_id != 0:
+                ipdatas = mysql_select(sql, (0,))
+        # 如果都没有数据，则返回 None
+        if ipdatas != None and len(ipdatas)>0:
+            for ipdata in ipdatas:
+                if return_city_id == 0:
+                    return_city_id = ipdata['city_id']
+                else:
+                    cache_push(settings.CACHEKEY_CITYJOB + str(src_city_id), ipdata)
+                last_city_id = ipdata['city_id']
+            # 缓存最后一个 city_id，用于缓存取光后，继续下次的查询
+            cache_push(settings.CACHEKEY_CITYJOB + str(src_city_id), last_city_id)
+            print(f'got {len(ipdatas)} cityids with {src_city_id} last_id {last_city_id}')
+    if return_city_id == 0:
+        return None
+    # 查找该city_id的可用ip列表
+    iplists = mysql_select('SELECT ip FROM pingable where city_id=%s and lastresult>=128 order by RAND() LIMIT 100;', (return_city_id,), False)
+    if iplists == None or len(iplists) == 0:
+        return None
+    return {
+        'city_id': return_city_id,
+        'ips': [x[0] for x in iplists]
+    }
 
 # agent=ping or data
 def update_client_status(ip:str, agent:str):
-    tracker = OnlineIPTracker(agent)
+    tracker = OnlineIPTracker(redis_pool, settings.CACHEKEY_ONLINE_SERVERS + agent)
     tracker.update_ip(ip)

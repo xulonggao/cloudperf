@@ -2,6 +2,7 @@ import json
 import settings
 import data_layer
 import ipaddress
+import numpy as np
 from urllib.parse import unquote_plus
 
 def webapi_status(requests):
@@ -262,6 +263,7 @@ requests: {
 '''
 def fping_logic(requests):
     ret = {"job":[],"next":"","interval":3600,"status":200}
+    city_id = data_layer.get_cityid_by_ip(requests['srcip'])
     if requests['method'] == 'POST':
         jobResult = json.loads(requests['body'])
         if 'next' in requests['query']:
@@ -290,7 +292,33 @@ def fping_logic(requests):
                 print(f"datajob: {jobid} status: {obj['status']}")
                 print(obj['stdout'])
                 print(obj['stderr'])
-                data_layer.update_statistics_data(jobid, obj['stdout'])
+                # stdout:
+                # [DEBUG] CPU time used: 0.083289 sec
+                # stderr:
+                # 2.17.168.71 : 370 370 370 370 373 370 370 370 370 370 370
+                # 2.17.168.93 : 358 358 358 358 363 358 358 358 358 358 358
+                # 2.17.168.76 : 358 358 358 358 358 359 358 358 358 358 358
+                samples = []
+                for stderr in obj['stderr'].split('\n'):
+                    for data in stderr.split(' '):
+                        try:
+                            samples.append(float(data))
+                        except ValueError:
+                            pass
+                arr = np.array(samples)
+                datas = {
+                    'src_city_id': city_id,
+                    'dist_city_id': jobid,
+                    'samples': len(arr),
+                    'latency_min': np.min(arr),
+                    'latency_max': np.max(arr),
+                    'latency_avg': np.mean(arr),
+                    'latency_p50': np.percentile(arr, 50),
+                    'latency_p70': np.percentile(arr, 70),
+                    'latency_p90': np.percentile(arr, 90),
+                    'latency_p95': np.percentile(arr, 95)
+                }
+                data_layer.update_statistics_data(datas)
     if requests['useragent'].startswith('fping-pingable'):
         data_layer.update_client_status(requests['srcip'], 'ping')
         # get ping job here, ensure buffer data enough
@@ -314,14 +342,14 @@ def fping_logic(requests):
             ret["interval"] = 1
     else:
         data_layer.update_client_status(requests['srcip'], 'data')
-        job = data_layer.get_pingjob_by_src_ip(requests['srcip'])
+        job = data_layer.get_pingjob_by_cityid(city_id)
         print(job)
         if job != None:
-            stip = ipaddress.IPv4Address(job['ip'])
-            print(f"fetch data job: {stip} {job['city_id']}")
+            ips = [str(ipaddress.IPv4Address(x)) for x in job['ips']]
+            print(f"fetch data job: {job['city_id']} {len(ips)}")
             ret["job"].append({
                 "jobid": 'data' + str(job['city_id']),
-                "command": f"fping -f {stip} -a -q -C 11",
+                "command": "fping -a -q -C 11 " + ' '.join(ips),
             })
             ret["next"] = "data"
             ret["interval"] = 1

@@ -53,8 +53,8 @@ function App() {
             <Route path="asnsearch" element={<ASNSearch />} />
             <Route path="search" element={<NetworkSearch />} />
             <Route path="cityset" element={<CitySet />} />
-            <Route path="maintenance" element={<Maintenance />} />
             <Route path="status" element={<Status />} />
+            <Route path="maintenance" element={<Maintenance />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VERSION="python3.12"
-PYTHON_LIB="PyMysql redis requests ipaddress"
+PYTHON_LIB="PyMysql redis requests ipaddress numpy"
 API_URL="http://cloudperf.tansoft.org/job"
 
 TMP_PATH=$(mktemp -d)
