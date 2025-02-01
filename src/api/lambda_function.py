@@ -269,22 +269,30 @@ def fping_logic(requests):
         else:
             next = ''
         for obj in jobResult:
-            # obj['status'] = 0 success 256 partial success
-            # obj['stderr'] -> 1.6.81.7 : duplicate for [0], 64 bytes, 468 ms
-            stdout = obj['stdout'].split('\n')
-            ips = []
-            for out in stdout:
-                # Enough hosts reachable (required: 100, reachable: 100)
-                if out == '' or out.startswith('[DEBUG]'):
-                    continue
-                if is_ip_address(out):
-                    ips.append(out)
-            print(f"jobid: {obj['jobid']} status: {obj['status']} ips: {len(ips)}")
-            print(ips)
-            if len(ips) > 0:
-                if obj['jobid'].startswith('ping'):
-                    data_layer.update_pingable_ip(int(obj['jobid'][4:]), ips)
+            jobtype = obj['jobid'][:4]
+            jobid = int(obj['jobid'][4:])
+            if jobtype == 'ping':
+                # obj['status'] = 0 success 256 partial success or not found any pingable ip
+                # obj['stderr'] -> 1.6.81.7 : duplicate for [0], 64 bytes, 468 ms
+                stdout = obj['stdout'].split('\n')
+                ips = []
+                for out in stdout:
+                    # Enough hosts reachable (required: 100, reachable: 100)
+                    if out == '' or out.startswith('[DEBUG]'):
+                        continue
+                    if is_ip_address(out):
+                        ips.append(out)
+                print(f"pingjob: {jobid} status: {obj['status']} ips: {len(ips)}")
+                print(ips)
+                if len(ips) > 0:
+                    data_layer.update_pingable_ip(jobid, ips)
+            elif jobtype == 'data':
+                print(f"datajob: {jobid} status: {obj['status']}")
+                print(obj['stdout'])
+                print(obj['stderr'])
+                data_layer.update_statistics_data(jobid, obj['stdout'])
     if requests['useragent'].startswith('fping-pingable'):
+        data_layer.update_client_status(requests['srcip'], 'ping')
         # get ping job here, ensure buffer data enough
         data_layer.refresh_iprange_check()
         for i in range(0, 10):
@@ -292,7 +300,7 @@ def fping_logic(requests):
             if obj:
                 stip = ipaddress.IPv4Address(obj['start_ip'])
                 etip = ipaddress.IPv4Address(obj['end_ip'])
-                print(f"fetch job: {stip} {etip} {obj['city_id']}")
+                print(f"fetch ping job: {stip} {etip} {obj['city_id']}")
                 ret["job"].append({
                     "jobid": 'ping' + str(obj['city_id']),
                     # disable stderr log here with 2> /dev/null , but it will cause error
@@ -302,25 +310,21 @@ def fping_logic(requests):
             else:
                 break
         if len(ret["job"]) > 0:
-            ret["next"] = 'pingable'
+            ret["next"] = 'ping'
             ret["interval"] = 1
     else:
-        cityid = data_layer.get_cityobject_by_ip(requests['srcip'])
-        print(cityid)
-        ret["job"].append({
-            "jobid": "123-1",
-            "command": "fping -g 8.8.8.5 8.8.8.10 -r 2 -a -q",
-        })
-        ret["job"].append({
-            "jobid": "123-2",
-            "command": "fping -g 1.1.1.0 1.1.1.3 -r 2 -a -q",
-        })
-        ret["job"].append({
-            "jobid": "123-3",
-            "command": "fping -g 110.242.68.1 110.242.68.10 -r 2 -a -q",
-        })
-        ret["next"] = "sfkR1xjer"
-        ret["interval"] = 10
+        data_layer.update_client_status(requests['srcip'], 'data')
+        job = data_layer.get_pingjob_by_src_ip(requests['srcip'])
+        print(job)
+        if job != None:
+            stip = ipaddress.IPv4Address(job['ip'])
+            print(f"fetch data job: {stip} {job['city_id']}")
+            ret["job"].append({
+                "jobid": 'data' + str(job['city_id']),
+                "command": f"fping -f {stip} -a -q -C 11",
+            })
+            ret["next"] = "data"
+            ret["interval"] = 1
     return {
         'statusCode': 200,
         'result': ret

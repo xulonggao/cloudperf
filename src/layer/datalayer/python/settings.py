@@ -7,9 +7,13 @@ CACHE_PORT=6379
 CACHE_BASE_TTL=3600
 CACHE_LONG_TTL=86400
 
+# 用于sql查询的缓存
 CACHEKEY_SQL = 'sql'
+# 用于可ping ip任务的缓存
 CACHEKEY_PINGABLE = 'ping'
+# 用于测试延迟任务的缓存
 CACHEKEY_CITYJOB = 'job'
+CACHEKEY_ONLINE_SERVERS = 'online'
 
 DB_READ_HOST='rds-r.cloudperf.vpc'
 DB_WRITE_HOST='rds.cloudperf.vpc'
