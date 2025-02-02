@@ -69,6 +69,7 @@ def webapi_performance(requests):
     for city_id in chain(srclist, distlist):
         city_id = int(city_id)
         city_obj = data_layer.get_cityobject_by_id(city_id)
+        print(city_id, city_obj)
         if city_obj and len(city_obj) > 0:
             cityobjs[city_id] = city_obj[0]
     data = {
@@ -80,13 +81,14 @@ def webapi_performance(requests):
         outdata['samples'] += item['samples']
         # 各种Latency数据汇总
         for key in ('min','max','avg','p50','p70','p90','p95'):
-            if key not in outdata[key+'Latency']:
-                outdata[key+'Latency'] = {'samples':0, 'data':0}
-            outdata[key+'Latency']['samples'] += item['samples']
-            outdata[key+'Latency']['data'] += item[key] * item['samples']
-        if src in cityobjs and dist in cityobjs:
-            srcobj = cityobjs[src]
-            distobj = cityobjs[dist]
+            keyname = key+'Latency'
+            if keyname not in outdata:
+                outdata[keyname] = {'samples':0, 'data':0}
+            outdata[keyname]['samples'] += item['samples']
+            outdata[keyname]['data'] += item[key] * item['samples']
+        if item['src'] in cityobjs and item['dist'] in cityobjs:
+            srcobj = cityobjs[item['src']]
+            distobj = cityobjs[item['dist']]
             # 分cityid的延迟数据分列，取p70
             outdata['latencyData'].append({
                 'sourceCityName': srcobj['name'],
@@ -101,22 +103,25 @@ def webapi_performance(requests):
             })
             # 分asn/city的延迟数据汇总，取p70
             for key,obj in (('asn','asn'),('city','name')):
+                print(key, ',', obj)
                 for subkey in (srcobj[obj],distobj[obj]):
-                    if subkey not in data['asnData']:
+                    if subkey not in data[key]:
                         data[key][subkey] = {'samples':0, 'data':0}
                     data[key][subkey]['samples'] += item['samples']
                     data[key][subkey]['data'] += item['p70'] * item['samples']
 
     # 各种Latency数据汇总
+    outdata['samples'] = int(outdata['samples'])
     for key in ('min','max','avg','p50','p70','p90','p95'):
-        outdata[key+'Latency'] = int(outdata[key+'Latency']['data'] / outdata[key+'Latency']['samples'])
+        outdata[key+'Latency'] = round(outdata[key+'Latency']['data'] / outdata[key+'Latency']['samples'] / 1000, 1)
 
     # 分asn/city的延迟数据汇总，取p70
+    print(data)
     for key in ('asn','city'):
         for k, v in data[key].items():
             outdata[key+'Data'].append({
-                key: k,
-                'avgLatency': int(data[key][k]['data'] / data[key][k]['samples'])
+                key: 'ASN' if key == 'asn' else '',
+                'p70Latency': round(data[key][k]['data'] / data[key][k]['samples'] / 1000, 1)
             })
 
     '''
