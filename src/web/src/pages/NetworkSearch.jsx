@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import React from 'react';
 import {
     fetchCitySets,
     fetchCountries,
@@ -147,10 +148,17 @@ export default function NetworkSearch() {
     }, [destCountry, destCity]);
 
     const handleSearch = async () => {
+        //const srcCityIds = selectedSet
+        //    ? citySets.find(set => set.id === selectedSet)?.cityIds
+        //    : selectedAsns.map(asn => asn.cityId);
+        //const destCityIds = selectedDestAsns.map(asn => asn.cityId);
+
         const srcCityIds = selectedSet
             ? citySets.find(set => set.id === selectedSet)?.cityIds
-            : selectedAsns.map(asn => asn.cityId);
-        const destCityIds = selectedDestAsns.map(asn => asn.cityId);
+            : (selectedAsns.length ? selectedAsns.map(asn => asn.cityId) : asns.map(asn => asn.cityId));
+
+        const destCityIds = selectedDestAsns.length ? selectedDestAsns.map(asn => asn.cityId)
+            : destAsns.map(asn => asn.cityId);
 
         try {
             const data = await fetchPerformanceData(srcCityIds, destCityIds);
@@ -164,8 +172,8 @@ export default function NetworkSearch() {
     const getBounds = () => {
         if (!performanceData) return [[0, 0], [0, 0]];
         const points = [
-            ...performanceData.sourceLocations.map(loc => [loc.latitude, loc.longitude]),
-            ...performanceData.destLocations.map(loc => [loc.latitude, loc.longitude])
+            ...performanceData.latencyData.map(data => [data.sourceLat, data.sourceLon]),
+            ...performanceData.latencyData.map(data => [data.destLat, data.destLon])
         ];
         if (points.length === 0) return [[0, 0], [0, 0]];
         const lats = points.map(p => p[0]);
@@ -287,8 +295,8 @@ export default function NetworkSearch() {
                             variant="contained"
                             onClick={handleSearch}
                             disabled={
-                                (!selectedSet && (!selectedAsns.length)) ||
-                                !selectedDestAsns.length
+                                (!selectedSet && (!selectedCity.length)) ||
+                                !destCity.length
                             }
                         >
                             Search
@@ -301,19 +309,19 @@ export default function NetworkSearch() {
                         {/* Metrics Cards */}
                         <Grid item xs={12}>
                             <Grid container spacing={2}>
-                                <Grid item xs={4}>
+                                <Grid item xs={3}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
                                                 Sample Count
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.samples} ({performanceData.srcCityIds}/{performanceData.destCityIds})
+                                                {performanceData.samples} ({performanceData.srcCityIds}/{performanceData.distCityIds})
                                             </Typography>
                                         </CardContent>
                                     </Card>
                                 </Grid>
-                                <Grid item xs={2}>
+                                <Grid item xs={1.5}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
@@ -325,7 +333,19 @@ export default function NetworkSearch() {
                                         </CardContent>
                                     </Card>
                                 </Grid>
-                                <Grid item xs={2}>
+                                <Grid item xs={1.5}>
+                                    <Card>
+                                        <CardContent>
+                                            <Typography color="textSecondary" gutterBottom>
+                                                P50 Latency
+                                            </Typography>
+                                            <Typography variant="h5">
+                                                {performanceData.p50Latency}ms
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                                <Grid item xs={1.5}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
@@ -337,7 +357,7 @@ export default function NetworkSearch() {
                                         </CardContent>
                                     </Card>
                                 </Grid>
-                                <Grid item xs={2}>
+                                <Grid item xs={1.5}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
@@ -349,7 +369,7 @@ export default function NetworkSearch() {
                                         </CardContent>
                                     </Card>
                                 </Grid>
-                                <Grid item xs={2}>
+                                <Grid item xs={1.5}>
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
@@ -357,6 +377,18 @@ export default function NetworkSearch() {
                                             </Typography>
                                             <Typography variant="h5">
                                                 {performanceData.p95Latency}ms
+                                            </Typography>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                                <Grid item xs={1.5}>
+                                    <Card>
+                                        <CardContent>
+                                            <Typography color="textSecondary" gutterBottom>
+                                                Max Latency
+                                            </Typography>
+                                            <Typography variant="h5">
+                                                {performanceData.maxLatency}ms
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -394,7 +426,7 @@ export default function NetworkSearch() {
                                         <XAxis dataKey="date" />
                                         <YAxis />
                                         <Tooltip />
-                                        <Line type="monotone" dataKey="avgLatency" stroke="#8884d8" />
+                                        <Line type="monotone" dataKey="p70Latency" stroke="#8884d8" />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -412,7 +444,7 @@ export default function NetworkSearch() {
                                         <XAxis dataKey="asn" />
                                         <YAxis />
                                         <Tooltip />
-                                        <Bar dataKey="avgLatency" fill="#8884d8" />
+                                        <Bar dataKey="p70Latency" fill="#8884d8" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -429,7 +461,7 @@ export default function NetworkSearch() {
                                         <XAxis dataKey="city" />
                                         <YAxis />
                                         <Tooltip />
-                                        <Bar dataKey="avgLatency" fill="#82ca9d" />
+                                        <Bar dataKey="p70Latency" fill="#82ca9d" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -450,34 +482,30 @@ export default function NetworkSearch() {
                                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                         />
-                                        {/* Source ASNs */}
-                                        {performanceData.sourceLocations.map((loc) => (
-                                            <Marker
-                                                key={`src-${loc.cityId}`}
-                                                position={[loc.latitude, loc.longitude]}
-                                            >
-                                                <Popup>
-                                                    Source ASN: {loc.asn}<br />
-                                                    {loc.cityId}
-                                                </Popup>
-                                            </Marker>
-                                        ))}
-                                        {/* Destination ASNs */}
-                                        {performanceData.destLocations.map((loc) => (
-                                            <Marker
-                                                key={`dst-${loc.cityId}`}
-                                                position={[loc.latitude, loc.longitude]}
-                                            >
-                                                <Popup>
-                                                    Destination ASN: {loc.asn}<br />
-                                                    {loc.cityId}
-                                                </Popup>
-                                            </Marker>
+                                        {performanceData.latencyData.map(data => (
+                                            <React.Fragment key={`pair-${data.sourceCityName}-${data.destCityName}`}>
+                                                <Marker
+                                                    position={[data.sourceLat, data.sourceLon]}
+                                                >
+                                                    <Popup>
+                                                        ASN{data.sourceAsn}<br />
+                                                        {data.sourceCityName}
+                                                    </Popup>
+                                                </Marker>
+                                                <Marker
+                                                    position={[data.destLat, data.destLon]}
+                                                >
+                                                    <Popup>
+                                                        ASN{data.destAsn}<br />
+                                                        {data.destCityName}
+                                                    </Popup>
+                                                </Marker>
+                                            </React.Fragment>
                                         ))}
                                         {/* Lines connecting source to destination with latency */}
                                         {performanceData.latencyData.map(data => (
                                             <Polyline
-                                                key={`${data.sourceCityId}-${data.destCityId}`}
+                                                key={`${data.sourceCityName}-${data.destCityName}`}
                                                 positions={[
                                                     [data.sourceLat, data.sourceLon],
                                                     [data.destLat, data.destLon]
@@ -487,9 +515,9 @@ export default function NetworkSearch() {
                                                 opacity={0.5}
                                             >
                                                 <Popup>
-                                                    Source: {data.sourceAsn}<br />
-                                                    Destination: {data.destAsn}<br />
-                                                    Latency: {data.latency}ms
+                                                    Src: ASN{data.sourceAsn} {data.sourceCityName}<br />
+                                                    Dest: ASN{data.destAsn} {data.destCityName}<br />
+                                                    P70 Latency: {data.latency}ms
                                                 </Popup>
                                             </Polyline>
                                         ))}

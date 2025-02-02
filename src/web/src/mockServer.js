@@ -50,7 +50,10 @@ const mockPerformanceData = {
     samples: 1000,
     srcCityIds: 1234,
     distCityIds: 2345,
+    minLatency: 10,
+    maxLatency: 90,
     avgLatency: 45,
+    p50Latency: 50,
     p70Latency: 50,
     p90Latency: 42,
     p95Latency: 42,
@@ -60,15 +63,15 @@ const mockPerformanceData = {
     })),
     timeSeriesData: Array(7).fill().map((_, i) => ({
         date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        avgLatency: Math.floor(Math.random() * 20 + 35)
+        p70Latency: Math.floor(Math.random() * 20 + 35)
     })),
     asnData: [
-        { asn: "AS7922", avgLatency: 42 },
-        { asn: "AS3356", avgLatency: 48 }
+        { asn: "AS7922", p70Latency: 42 },
+        { asn: "AS3356", p70Latency: 48 }
     ],
     cityData: [
-        { city: "New York", avgLatency: 45 },
-        { city: "San Francisco", avgLatency: 55 }
+        { city: "New York", p70Latency: 45 },
+        { city: "San Francisco", p70Latency: 55 }
     ]
 };
 
@@ -209,11 +212,11 @@ export function startMockServer() {
                 // Generate latency data for each source-destination pair
                 const latencyData = sourceLocations.flatMap(source =>
                     destLocations.map(dest => ({
-                        sourceCityId: source.cityId,
+                        sourceCityName: source.cityId,
                         sourceAsn: source.asn,
                         sourceLat: source.latitude,
                         sourceLon: source.longitude,
-                        destCityId: dest.cityId,
+                        destCityName: dest.cityId,
                         destAsn: dest.asn,
                         destLat: dest.latitude,
                         destLon: dest.longitude,
@@ -223,8 +226,6 @@ export function startMockServer() {
 
                 return {
                     ...mockPerformanceData,
-                    sourceLocations,
-                    destLocations,
                     latencyData
                 };
             });

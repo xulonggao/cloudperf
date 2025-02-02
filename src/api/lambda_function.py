@@ -3,6 +3,7 @@ import settings
 import data_layer
 import ipaddress
 from urllib.parse import unquote_plus
+from itertools import chain
 
 def webapi_status(requests):
     return {
@@ -28,8 +29,8 @@ def webapi_statistics(requests):
 def webapi_performance(requests):
     if 'src' not in requests['query'] or 'dist' not in requests['query']:
         return {'statusCode': 400, 'result': 'param src and dist not found!'}
-    src = unquote_plus(requests['query']['src'])
-    dist = '2228836286,922075495,2265478952,2498629220' #unquote_plus(requests['query']['dist'])
+    src = '2771369315' #unquote_plus(requests['query']['src'])
+    dist = '219826751,1246289398,1466233068,2099884446,2321641805' #unquote_plus(requests['query']['dist'])
     latencyData = data_layer.get_latency_data_cross_city(src, dist)
     print(latencyData)
     # [{'src': 1395638387, 'dist': 922075495, 'samples': Decimal('10'), 'min': 19600, 'max': 22200, 'avg': Decimal('20700.0000'), 'p50': Decimal('20000.0000'), 'p70': Decimal('21300.0000'), 'p90': Decimal('22000.0000'), 'p95': Decimal('22000.0000')},{},{}]
@@ -37,23 +38,88 @@ def webapi_performance(requests):
     # "1395638387,2228836286,10,23900,25500,24600.0000,24600.0000,24800.0000,25100.0000,25100.0000",
     if latencyData == None:
         return {'statusCode': 400, 'result': 'param src and dist invalid!'}
+    srclist = src.split(',')
+    distlist = dist.split(',')
+    outdata = {
+        "samples": 0,
+        "srcCityIds": len(srclist),
+        "distCityIds": len(distlist),
+        "latencySeriesData": [
+            {"latency": 50, "samples": 100},
+            {"latency": 60, "samples": 10},
+            {"latency": 80, "samples": 20},
+            {"latency": 60, "samples": 30},
+            {"latency": 65, "samples": 15},
+        ],
+        "timeSeriesData": [
+            {"date": "2025-01-04","avgLatency": 50},
+            {"date": "2025-01-03","avgLatency": 52},
+            {"date": "2025-01-02","avgLatency": 48},
+            {"date": "2025-01-01","avgLatency": 39},
+            {"date": "2024-12-31","avgLatency": 48},
+            {"date": "2024-12-30","avgLatency": 45},
+            {"date": "2024-12-29","avgLatency": 51}
+        ],
+        "asnData": [],
+        "cityData": [],
+        "latencyData": []
+    }
+    # 找到所有相关的city_id对应对象
+    cityobjs = {}
+    for city_id in chain(srclist, distlist):
+        city_id = int(city_id)
+        city_obj = data_layer.get_cityobject_by_id(city_id)
+        if city_obj and len(city_obj) > 0:
+            cityobjs[city_id] = city_obj[0]
     data = {
-        'srcCityIds': {},
-        'distCityIds': {}
+        'asn': {},
+        'city': {}
     }
     for item in latencyData:
-        if item['src'] not in data['srcCityIds']:
-            data['srcCityIds'][item['src']] = {'samples':0, 'data':0}
-        data['srcCityIds'][item['src']]['samples'] += item['samples']
-        data['srcCityIds'][item['src']]['data'] += item['p70'] * item['samples']
-        if item['dist'] not in data['distCityIds']:
-            data['distCityIds'][item['dist']] = {'samples':0, 'data':0}
-        data['distCityIds'][item['dist']]['samples'] += item['samples']
-        data['distCityIds'][item['dist']]['data'] += item['p70'] * item['samples']
+        # samples数据汇总
+        outdata['samples'] += item['samples']
+        # 各种Latency数据汇总
+        for key in ('min','max','avg','p50','p70','p90','p95'):
+            if key not in outdata[key+'Latency']:
+                outdata[key+'Latency'] = {'samples':0, 'data':0}
+            outdata[key+'Latency']['samples'] += item['samples']
+            outdata[key+'Latency']['data'] += item[key] * item['samples']
+        if src in cityobjs and dist in cityobjs:
+            srcobj = cityobjs[src]
+            distobj = cityobjs[dist]
+            # 分cityid的延迟数据分列，取p70
+            outdata['latencyData'].append({
+                'sourceCityName': srcobj['name'],
+                'sourceAsn': srcobj['asn'],
+                'sourceLat': srcobj['latitude'],
+                'sourceLon': srcobj['longitude'],
+                'destCityName': distobj['name'],
+                'destAsn': distobj['asn'],
+                'destLat': distobj['latitude'],
+                'destLon': distobj['longitude'],
+                'latency': item['p70']
+            })
+            # 分asn/city的延迟数据汇总，取p70
+            for key,obj in (('asn','asn'),('city','name')):
+                for subkey in (srcobj[obj],distobj[obj]):
+                    if subkey not in data['asnData']:
+                        data[key][subkey] = {'samples':0, 'data':0}
+                    data[key][subkey]['samples'] += item['samples']
+                    data[key][subkey]['data'] += item['p70'] * item['samples']
+
+    # 各种Latency数据汇总
+    for key in ('min','max','avg','p50','p70','p90','p95'):
+        outdata[key+'Latency'] = int(outdata[key+'Latency']['data'] / outdata[key+'Latency']['samples'])
+
+    # 分asn/city的延迟数据汇总，取p70
+    for key in ('asn','city'):
+        for k, v in data[key].items():
+            outdata[key+'Data'].append({
+                key: k,
+                'avgLatency': int(data[key][k]['data'] / data[key][k]['samples'])
+            })
+
     '''
-    样本所在延迟的区间
-    samples / latency
-    样本数量饼图
     p70最大的五个src，p70最大的五个dist
     聚合完所有数据后得出：
         p70最大的五个asn，p70最大的五个asn
@@ -61,57 +127,7 @@ def webapi_performance(requests):
     '''
     return {
         'statusCode': 200,
-        'result': {
-            "samples": 1000,
-            "srcCityIds": src.count(','),
-            "distCityIds": dist.count(','),
-            "avgLatency": 45,
-            "p70Latency": 50,
-            "p90Latency": 42,
-            "p95Latency": 42,
-            "latencySeriesData": [
-                {"latency": 50, "samples": 100},
-                {"latency": 60, "samples": 10},
-                {"latency": 80, "samples": 20},
-                {"latency": 60, "samples": 30},
-                {"latency": 65, "samples": 15},
-            ],
-            "timeSeriesData": [
-                {"date": "2025-01-04","avgLatency": 50},
-                {"date": "2025-01-03","avgLatency": 52},
-                {"date": "2025-01-02","avgLatency": 48},
-                {"date": "2025-01-01","avgLatency": 39},
-                {"date": "2024-12-31","avgLatency": 48},
-                {"date": "2024-12-30","avgLatency": 45},
-                {"date": "2024-12-29","avgLatency": 51}
-            ],
-            "asnData": [
-                {"asn": "AS7922","avgLatency": 42},
-                {"asn": "AS3356","avgLatency": 48}
-            ],
-            "cityData": [
-                {"city": "New York","avgLatency": 45},
-                {"city": "San Francisco","avgLatency": 55}
-            ],
-            "sourceLocations": [
-                {"cityId": "US-NYC-7922","asn": "7922","latitude": 45.68122565778718,"longitude": -116.72670125958872},
-                {"cityId": "US-NYC-3356","asn": "3356","latitude": 45.905292481682665,"longitude": -114.04344943278507}
-            ],
-            "destLocations": [
-                {"cityId": "US-SFO-16509","asn": "16509","latitude": 42.24565280543524,"longitude": -65.55765414750672},
-                {"cityId": "US-SFO-15169","asn": "15169","latitude": 45.52876173811771,"longitude": -73.46462807876824}
-            ],
-            "latencyData": [
-                {"sourceCityId": "US-NYC-7922","sourceAsn": "7922","sourceLat": 45.68122565778718,"sourceLon": -116.72670125958872,
-                "destCityId": "US-SFO-16509","destAsn": "16509","destLat": 42.24565280543524,"destLon": -65.55765414750672,"latency": 69},
-                {"sourceCityId": "US-NYC-7922","sourceAsn": "7922","sourceLat": 45.68122565778718,"sourceLon": -116.72670125958872,
-                "destCityId": "US-SFO-15169","destAsn": "15169","destLat": 45.52876173811771,"destLon": -73.46462807876824,"latency": 23},
-                {"sourceCityId": "US-NYC-3356","sourceAsn": "3356","sourceLat": 45.905292481682665,"sourceLon": -114.04344943278507,
-                "destCityId": "US-SFO-16509","destAsn": "16509","destLat": 42.24565280543524,"destLon": -65.55765414750672,"latency": 33},
-                {"sourceCityId": "US-NYC-3356","sourceAsn": "3356","sourceLat": 45.905292481682665,"sourceLon": -114.04344943278507,
-                "destCityId": "US-SFO-15169","destAsn": "15169","destLat": 45.52876173811771,"destLon": -73.46462807876824,"latency": 63}
-            ]
-        }
+        'result': outdata
     }
 
 # {username: "admin", password: "admin"}

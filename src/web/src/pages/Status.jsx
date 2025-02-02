@@ -121,6 +121,27 @@ export default function Status() {
                     </Grid>
                     <Grid item xs={12} sm={4} md={2}>
                         <StatCard
+                            title="Total Cityids"
+                            value={stats['cityid-all']}
+                            icon={LocationCityIcon}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4} md={2}>
+                        <StatCard
+                            title="Pingable CityIds"
+                            value={stats['cityid-ping']}
+                            icon={LocationCityIcon}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4} md={2}>
+                        <StatCard
+                            title="Valid CityId Pairs"
+                            value={stats['cityid-pair']}
+                            icon={CompareArrowsIcon}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4} md={2}>
+                        <StatCard
                             title="Stable Pings"
                             value={stats['ping-stable']}
                             icon={SignalCellularAltIcon}
@@ -159,27 +180,6 @@ export default function Status() {
                             title="Cidr Queue"
                             value={stats['cidr-queue']}
                             icon={QueueIcon}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4} md={2}>
-                        <StatCard
-                            title="Total Cityids"
-                            value={stats['cityid-all']}
-                            icon={LocationCityIcon}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4} md={2}>
-                        <StatCard
-                            title="Pingable CityIds"
-                            value={stats['cityid-ping']}
-                            icon={LocationCityIcon}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4} md={2}>
-                        <StatCard
-                            title="Valid CityId Pairs"
-                            value={stats['cityid-pair']}
-                            icon={CompareArrowsIcon}
                         />
                     </Grid>
                 </Grid>

@@ -10,6 +10,18 @@ from onlineip_tracker import OnlineIPTracker
 from typing import List, Dict, Any
 from botocore.exceptions import ClientError
 
+import pymysql
+from pymysql.constants import FIELD_TYPE
+
+# 自定义转换器
+def decimal_to_float(value):
+    return float(value)
+
+# 注册转换器，避免结果中有Decimal对象，无法json格式化问题
+conv = pymysql.converters.conversions.copy()
+conv[FIELD_TYPE.DECIMAL] = decimal_to_float
+conv[FIELD_TYPE.NEWDECIMAL] = decimal_to_float
+
 redis_pool = redis.ConnectionPool(
     host=settings.CACHE_HOST,
     port=settings.CACHE_PORT,
@@ -18,10 +30,15 @@ redis_pool = redis.ConnectionPool(
     socket_timeout=5,
     socket_connect_timeout=5)
 
+def get_mysql_connect(need_write = False, need_multi = False, db = settings.DB_DATABASE):
+    host = settings.DB_WRITE_HOST if need_write else settings.DB_READ_HOST
+    client_flag = pymysql.constants.CLIENT.MULTI_STATEMENTS if need_multi else 0
+    return pymysql.connect(host=host, user=settings.DB_USER, passwd=settings.DB_PASS, db=db, charset='utf8mb4', port=settings.DB_PORT, client_flag=client_flag, conv=conv)
+
 def mysql_create_database(database:str = None):
     if database == None:
         database = settings.DB_DATABASE
-    conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, charset='utf8mb4', port=settings.DB_PORT)
+    conn = get_mysql_connect(need_write = True, db = None)
     cursor = conn.cursor()
     try:
         sql = "CREATE DATABASE IF NOT EXISTS `" + database + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
@@ -58,7 +75,7 @@ def fetch_all_to_dict(cursor: pymysql.cursors.Cursor) -> List[Dict[str, Any]]:
 # 执行写
 def mysql_execute(sql:str, obj = None):
     #pymysql.connections.DEBUG = True
-    conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
+    conn = get_mysql_connect(True)
     cursor = conn.cursor()
     cursor.execute(sql, obj)
     results = cursor.fetchall()
@@ -68,7 +85,7 @@ def mysql_execute(sql:str, obj = None):
     return results
 
 def mysql_select(sql:str, obj = None, fetchObject = True):
-    conn = pymysql.connect(host=settings.DB_READ_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
+    conn = get_mysql_connect(False)
     cursor = conn.cursor()
     cursor.execute(sql, obj)
     if fetchObject:
@@ -83,20 +100,10 @@ def mysql_select(sql:str, obj = None, fetchObject = True):
 def mysql_batch_execute(sql: str):
     results = []
     try:
-        conn = pymysql.connect(
-            host=settings.DB_WRITE_HOST,
-            user=settings.DB_USER,
-            passwd=settings.DB_PASS,
-            db=settings.DB_DATABASE,
-            charset='utf8mb4',
-            port=settings.DB_PORT,
-            client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
-        )
+        conn = get_mysql_connect(need_write = True, need_multi = True)
         cursor = conn.cursor()
-
         # 分割SQL语句
         sql_statements = sql.strip().split(";")
-        
         affected_rows = 0
         # 执行每条SQL语句
         for sql in sql_statements:
@@ -145,71 +152,6 @@ def mysql_batch_execute(sql: str):
         if 'conn' in locals():
             conn.close()
     return results
-
-def mysql_print_results(results):
-    """打印执行结果"""
-    for result in results:
-        if 'error' in result:
-            print(f"\n错误: {result['error']}")
-            continue
-        print(f"\n执行SQL: {result['sql']}")        
-        if result['type'] == 'query':
-            if 'columns' in result:
-                print("列名:", " | ".join(result['columns']))
-                for row in result['rows']:
-                    print(" | ".join(map(str, row)))
-            else:
-                print(result['message'])
-        else:
-            print(f"影响行数: {result['affected_rows']}")   
-
-def mysql_batch_runsql(sql:str):
-    ret = True
-    # Enable multi-statements in connection
-    conn = pymysql.connect(
-        host=settings.DB_WRITE_HOST,
-        user=settings.DB_USER,
-        passwd=settings.DB_PASS,
-        db=settings.DB_DATABASE,
-        charset='utf8mb4',
-        port=settings.DB_PORT,
-        client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
-    )
-    cursor = conn.cursor()
-    try:
-        cursor.execute(sql)
-        # Handle multiple result sets
-        while True:
-            try:
-                cursor.fetchall()
-                if not cursor.nextset():
-                    break
-            except:
-                pass
-        conn.commit()
-    except Exception as e:
-        print(f"Error executing SQL script: {e}")
-        conn.rollback()
-        ret = False
-    finally:
-        cursor.close()
-        conn.close()
-    return ret
-
-def mysql_runsql(sql:str, obj = None):
-    conn = pymysql.connect(host=settings.DB_WRITE_HOST, user=settings.DB_USER, passwd=settings.DB_PASS, db=settings.DB_DATABASE, charset='utf8mb4', port=settings.DB_PORT)
-    cursor = conn.cursor()
-    try:
-        cursor.execute(sql, obj)
-        ret = cursor.fetchall()
-    except Exception as e:
-        print(f"Error executing SQL script: {e}")
-        conn.rollback()
-        ret = False
-    finally:
-        cursor.close()
-        conn.close()
-    return ret
 
 def mysql_select_onevalue(sql:str, obj = None, default = 0):
     row = mysql_select(sql, obj, False)
