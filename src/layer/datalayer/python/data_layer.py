@@ -274,7 +274,7 @@ def get_asns_by_country_city(country_code, city_name, cityset:int = 0):
 (
     select dist_city_id from statistics where FIND_IN_SET(src_city_id,
     (SELECT cityids FROM cityset WHERE id = %s))
-) group by c.id,c.asn''',(country_code,city_name,cityset))
+) group by c.id,c.asn''',(country_code,city_name,cityset)) #这里加了 ,c.asn 为了把多条cidr记录合并
     return get_cityobject("c.country_code = %s and c.name = %s group by c.id,c.asn",(country_code,city_name,))
 
 def get_cityobject_by_ip(ip:str):

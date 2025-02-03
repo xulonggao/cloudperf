@@ -50,13 +50,13 @@ const mockPerformanceData = {
     samples: 1000,
     srcCityIds: 1234,
     distCityIds: 2345,
-    minLatency: 10,
-    maxLatency: 90,
-    avgLatency: 45,
-    p50Latency: 50,
-    p70Latency: 50,
-    p90Latency: 42,
-    p95Latency: 42,
+    min: 10,
+    max: 90,
+    avg: 45,
+    p50: 50,
+    p70: 50,
+    p90: 42,
+    p95: 42,
     latencySeriesData: Array(7).fill().map((_, i) => ({
         latency: Math.floor(Math.random() * 20 + 35),
         samples: Math.floor(Math.random() * 20 + 35)
@@ -66,12 +66,12 @@ const mockPerformanceData = {
         p70Latency: Math.floor(Math.random() * 20 + 35)
     })),
     asnData: [
-        { asn: "AS7922", p70Latency: 42 },
-        { asn: "AS3356", p70Latency: 48 }
+        { asn: "AS7922", p70: 42 },
+        { asn: "AS3356", p70: 48 }
     ],
     cityData: [
-        { city: "New York", p70Latency: 45 },
-        { city: "San Francisco", p70Latency: 55 }
+        { city: "New York", p70: 45 },
+        { city: "San Francisco", p70: 55 }
     ]
 };
 
@@ -212,11 +212,11 @@ export function startMockServer() {
                 // Generate latency data for each source-destination pair
                 const latencyData = sourceLocations.flatMap(source =>
                     destLocations.map(dest => ({
-                        sourceCityName: source.cityId,
-                        sourceAsn: source.asn,
-                        sourceLat: source.latitude,
-                        sourceLon: source.longitude,
-                        destCityName: dest.cityId,
+                        srcCity: source.cityId,
+                        srcAsn: source.asn,
+                        srcLat: source.latitude,
+                        srcLon: source.longitude,
+                        destCity: dest.cityId,
                         destAsn: dest.asn,
                         destLat: dest.latitude,
                         destLon: dest.longitude,

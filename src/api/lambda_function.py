@@ -29,8 +29,8 @@ def webapi_statistics(requests):
 def webapi_performance(requests):
     if 'src' not in requests['query'] or 'dist' not in requests['query']:
         return {'statusCode': 400, 'result': 'param src and dist not found!'}
-    src = '2771369315' #unquote_plus(requests['query']['src'])
-    dist = '219826751,1246289398,1466233068,2099884446,2321641805' #unquote_plus(requests['query']['dist'])
+    src = unquote_plus(requests['query']['src'])
+    dist = unquote_plus(requests['query']['dist'])
     latencyData = data_layer.get_latency_data_cross_city(src, dist)
     print(latencyData)
     # [{'src': 1395638387, 'dist': 922075495, 'samples': Decimal('10'), 'min': 19600, 'max': 22200, 'avg': Decimal('20700.0000'), 'p50': Decimal('20000.0000'), 'p70': Decimal('21300.0000'), 'p90': Decimal('22000.0000'), 'p95': Decimal('22000.0000')},{},{}]
@@ -81,30 +81,34 @@ def webapi_performance(requests):
         outdata['samples'] += item['samples']
         # 各种Latency数据汇总
         for key in ('min','max','avg','p50','p70','p90','p95'):
-            keyname = key+'Latency'
-            if keyname not in outdata:
-                outdata[keyname] = {'samples':0, 'data':0}
-            outdata[keyname]['samples'] += item['samples']
-            outdata[keyname]['data'] += item[key] * item['samples']
+            if key not in outdata:
+                outdata[key] = {'samples':0, 'data':0}
+            outdata[key]['samples'] += item['samples']
+            outdata[key]['data'] += item[key] * item['samples']
         if item['src'] in cityobjs and item['dist'] in cityobjs:
             srcobj = cityobjs[item['src']]
             distobj = cityobjs[item['dist']]
             # 分cityid的延迟数据分列，取p70
             outdata['latencyData'].append({
-                'sourceCityName': srcobj['name'],
-                'sourceAsn': srcobj['asn'],
-                'sourceLat': srcobj['latitude'],
-                'sourceLon': srcobj['longitude'],
-                'destCityName': distobj['name'],
+                'srcCity': srcobj['name'],
+                'srcAsn': srcobj['asn'],
+                'srcLat': srcobj['latitude'],
+                'srcLon': srcobj['longitude'],
+                'destCity': distobj['name'],
                 'destAsn': distobj['asn'],
                 'destLat': distobj['latitude'],
                 'destLon': distobj['longitude'],
-                'latency': item['p70']
+                'latency': round(item['p70']/1000, 1)
             })
             # 分asn/city的延迟数据汇总，取p70
-            for key,obj in (('asn','asn'),('city','name')):
-                print(key, ',', obj)
-                for subkey in (srcobj[obj],distobj[obj]):
+            for key in ('asn','city'):
+                if key == 'asn':
+                    srcsubkey = 'ASN' + str(srcobj['asn']) + ' ' + srcobj['name']
+                    distsubkey = 'ASN' + str(distobj['asn']) + ' ' + distobj['name']
+                else:
+                    srcsubkey = srcobj['name']
+                    distsubkey = distobj['name']
+                for subkey in (srcsubkey,distsubkey):
                     if subkey not in data[key]:
                         data[key][subkey] = {'samples':0, 'data':0}
                     data[key][subkey]['samples'] += item['samples']
@@ -113,15 +117,18 @@ def webapi_performance(requests):
     # 各种Latency数据汇总
     outdata['samples'] = int(outdata['samples'])
     for key in ('min','max','avg','p50','p70','p90','p95'):
-        outdata[key+'Latency'] = round(outdata[key+'Latency']['data'] / outdata[key+'Latency']['samples'] / 1000, 1)
+        if key in outdata:
+            outdata[key] = round(outdata[key]['data'] / outdata[key]['samples'] / 1000, 1)
+        else:
+            outdata[key] = 0
 
     # 分asn/city的延迟数据汇总，取p70
     print(data)
     for key in ('asn','city'):
         for k, v in data[key].items():
             outdata[key+'Data'].append({
-                key: 'ASN' if key == 'asn' else '',
-                'p70Latency': round(data[key][k]['data'] / data[key][k]['samples'] / 1000, 1)
+                key: k,
+                'p70': round(data[key][k]['data'] / data[key][k]['samples'] / 1000, 1)
             })
 
     '''
@@ -152,7 +159,7 @@ def webapi_asn(requests):
     asns = []
     if 'country' in requests['query'] and len(requests['query']['country']) >= 2:
         if 'city' in requests['query'] and len(requests['query']['city']) >= 2:
-            asns = data_layer.get_asns_by_country_city(requests['query']['country'], requests['query']['city'], cityset)
+            asns = data_layer.get_asns_by_country_city(requests['query']['country'], unquote_plus(requests['query']['city']), cityset)
     return {
         'statusCode': 200,
         'result': asns

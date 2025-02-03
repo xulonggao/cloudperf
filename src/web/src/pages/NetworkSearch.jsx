@@ -50,18 +50,23 @@ export default function NetworkSearch() {
     // State for source selection
     const [citySets, setCitySets] = useState([]);
     const [selectedSet, setSelectedSet] = useState('');
+
     const [countries, setCountries] = useState([]);
-    const [distCountries, setDistCountries] = useState([]);
     const [selectedCountry, setSelectedCountry] = useState('');
+
     const [cities, setCities] = useState([]);
     const [selectedCity, setSelectedCity] = useState('');
+
     const [asns, setAsns] = useState([]);
     const [selectedAsns, setSelectedAsns] = useState([]);
 
     // State for destination selection
-    const [destCountry, setDestCountry] = useState('');
+    const [destCountries, setDestCountries] = useState([]);
+    const [selectedDestCountry, setSelectedDestCountry] = useState('');
+
     const [destCities, setDestCities] = useState([]);
-    const [destCity, setDestCity] = useState('');
+    const [selectedDestCity, setSelectedDestCity] = useState('');
+
     const [destAsns, setDestAsns] = useState([]);
     const [selectedDestAsns, setSelectedDestAsns] = useState([]);
 
@@ -78,7 +83,7 @@ export default function NetworkSearch() {
                 ]);
                 setCitySets(setsData);
                 setCountries(countriesData);
-                setDistCountries(countriesData);
+                setDestCountries(countriesData);
             } catch (error) {
                 console.error('Error fetching initial data:', error);
             }
@@ -88,64 +93,59 @@ export default function NetworkSearch() {
 
     useEffect(() => {
         // Fetch countries when city sets is selected
+        setSelectedDestCountry('');
         if (selectedSet) {
-            setSelectedCity(''); // Reset city when country changes
+            setDestCountries([]);
             fetchCountries(selectedSet)
-                .then(data => setDistCountries(data))
+                .then(data => setDestCountries(data))
                 .catch(error => console.error('Error fetching dist countries:', error));
         } else {
-            setDistCountries(countries);
+            setDestCountries(countries);
         }
     }, [selectedSet]);
 
     // Fetch cities when country is selected
     useEffect(() => {
-        setSelectedAsns([]); // Reset ASNs when country changes or country is cleared
+        setSelectedCity('');
+        setCities([]);
         if (selectedCountry) {
-            setSelectedCity(''); // Reset city when country changes
             fetchCities(selectedCountry)
                 .then(data => setCities(data))
                 .catch(error => console.error('Error fetching cities:', error));
-        } else {
-            setCities([]);
         }
     }, [selectedCountry]);
 
     // Fetch ASNs when city is selected
     useEffect(() => {
-        setSelectedAsns([]); // Reset selected ASNs when city changes or city is cleared
+        setSelectedAsns([]);
+        setAsns([]);
         if (selectedCountry && selectedCity) {
             fetchAsns(selectedCountry, selectedCity)
                 .then(data => setAsns(data))
                 .catch(error => console.error('Error fetching ASNs:', error));
-        } else {
-            setAsns([]);
         }
     }, [selectedCountry, selectedCity]);
 
     // Similar effects for destination selection
     useEffect(() => {
-        setSelectedDestAsns([]); // Reset dest ASNs when country changes or country is cleared
-        if (destCountry) {
-            setDestCity(''); // Reset dest city when country changes
-            fetchCities(destCountry, selectedSet)
+        setSelectedDestCity('');
+        setDestCities([]);
+        if (selectedDestCountry) {
+            fetchCities(selectedDestCountry, selectedSet)
                 .then(data => setDestCities(data))
                 .catch(error => console.error('Error fetching destination cities:', error));
-        } else {
-            setDestCities([]);
         }
-    }, [destCountry]);
+    }, [selectedDestCountry]);
 
     useEffect(() => {
-        setSelectedDestAsns([]); // Reset selected dest ASNs when city changes or city is cleared
-        if (destCountry && destCity) {
-            fetchAsns(destCountry, destCity, selectedSet)
+        setSelectedDestAsns([]);
+        setDestAsns([]);
+        if (selectedDestCountry && selectedDestCity) {
+            fetchAsns(selectedDestCountry, selectedDestCity, selectedSet)
                 .then(data => setDestAsns(data))
                 .catch(error => console.error('Error fetching destination ASNs:', error));
-        } else {
-            setDestAsns([]);
         }
-    }, [destCountry, destCity]);
+    }, [selectedDestCountry, selectedDestCity]);
 
     const handleSearch = async () => {
         //const srcCityIds = selectedSet
@@ -172,7 +172,7 @@ export default function NetworkSearch() {
     const getBounds = () => {
         if (!performanceData) return [[0, 0], [0, 0]];
         const points = [
-            ...performanceData.latencyData.map(data => [data.sourceLat, data.sourceLon]),
+            ...performanceData.latencyData.map(data => [data.srcLat, data.srcLon]),
             ...performanceData.latencyData.map(data => [data.destLat, data.destLon])
         ];
         if (points.length === 0) return [[0, 0], [0, 0]];
@@ -235,7 +235,7 @@ export default function NetworkSearch() {
                                 <Autocomplete
                                     multiple
                                     options={asns}
-                                    getOptionLabel={(option) => option.asnName}
+                                    getOptionLabel={(option) => `${option.asnName} (ASN${option.asn})`}
                                     value={selectedAsns}
                                     onChange={(_, newValue) => setSelectedAsns(newValue)}
                                     disabled={!selectedCity}
@@ -255,10 +255,10 @@ export default function NetworkSearch() {
                             Destination Selection
                         </Typography>
                         <Autocomplete
-                            options={distCountries}
+                            options={destCountries}
                             getOptionLabel={(option) => option.name}
-                            value={distCountries.find(c => c.code === destCountry) || null}
-                            onChange={(_, newValue) => setDestCountry(newValue?.code || '')}
+                            value={destCountries.find(c => c.code === selectedDestCountry) || null}
+                            onChange={(_, newValue) => setSelectedDestCountry(newValue?.code || '')}
                             renderInput={(params) => (
                                 <TextField {...params} label="Country" fullWidth sx={{ mb: 2 }} />
                             )}
@@ -267,9 +267,9 @@ export default function NetworkSearch() {
                         <Autocomplete
                             options={destCities}
                             getOptionLabel={(option) => option.name}
-                            value={destCities.find(c => c.id === destCity) || null}
-                            onChange={(_, newValue) => setDestCity(newValue?.id || '')}
-                            disabled={!destCountry}
+                            value={destCities.find(c => c.id === selectedDestCity) || null}
+                            onChange={(_, newValue) => setSelectedDestCity(newValue?.id || '')}
+                            disabled={!selectedDestCountry}
                             renderInput={(params) => (
                                 <TextField {...params} label="City" fullWidth sx={{ mb: 2 }} />
                             )}
@@ -278,10 +278,10 @@ export default function NetworkSearch() {
                         <Autocomplete
                             multiple
                             options={destAsns}
-                            getOptionLabel={(option) => option.asnName}
+                            getOptionLabel={(option) => `${option.asnName} (ASN${option.asn})`}
                             value={selectedDestAsns}
                             onChange={(_, newValue) => setSelectedDestAsns(newValue)}
-                            disabled={!destCity}
+                            disabled={!selectedDestCity}
                             renderInput={(params) => (
                                 <TextField {...params} label="ASNs" fullWidth />
                             )}
@@ -296,7 +296,7 @@ export default function NetworkSearch() {
                             onClick={handleSearch}
                             disabled={
                                 (!selectedSet && (!selectedCity.length)) ||
-                                !destCity.length
+                                !selectedDestCity.length
                             }
                         >
                             Search
@@ -328,7 +328,7 @@ export default function NetworkSearch() {
                                                 Avg Latency
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.avgLatency}ms
+                                                {performanceData.avg}ms
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -340,7 +340,7 @@ export default function NetworkSearch() {
                                                 P50 Latency
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.p50Latency}ms
+                                                {performanceData.p50}ms
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -352,7 +352,7 @@ export default function NetworkSearch() {
                                                 P70 Latency
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.p70Latency}ms
+                                                {performanceData.p70}ms
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -364,7 +364,7 @@ export default function NetworkSearch() {
                                                 P90 Latency
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.p90Latency}ms
+                                                {performanceData.p90}ms
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -376,7 +376,7 @@ export default function NetworkSearch() {
                                                 P95 Latency
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.p95Latency}ms
+                                                {performanceData.p95}ms
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -388,7 +388,7 @@ export default function NetworkSearch() {
                                                 Max Latency
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.maxLatency}ms
+                                                {performanceData.max}ms
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -444,7 +444,7 @@ export default function NetworkSearch() {
                                         <XAxis dataKey="asn" />
                                         <YAxis />
                                         <Tooltip />
-                                        <Bar dataKey="p70Latency" fill="#8884d8" />
+                                        <Bar dataKey="p70" fill="#8884d8" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -461,7 +461,7 @@ export default function NetworkSearch() {
                                         <XAxis dataKey="city" />
                                         <YAxis />
                                         <Tooltip />
-                                        <Bar dataKey="p70Latency" fill="#82ca9d" />
+                                        <Bar dataKey="p70" fill="#82ca9d" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -483,13 +483,13 @@ export default function NetworkSearch() {
                                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                         />
                                         {performanceData.latencyData.map(data => (
-                                            <React.Fragment key={`pair-${data.sourceCityName}-${data.destCityName}`}>
+                                            <React.Fragment key={`pair-${data.srcCity}-${data.destCity}`}>
                                                 <Marker
-                                                    position={[data.sourceLat, data.sourceLon]}
+                                                    position={[data.srcLat, data.srcLon]}
                                                 >
                                                     <Popup>
-                                                        ASN{data.sourceAsn}<br />
-                                                        {data.sourceCityName}
+                                                        ASN{data.srcAsn}<br />
+                                                        {data.srcCity}
                                                     </Popup>
                                                 </Marker>
                                                 <Marker
@@ -497,7 +497,7 @@ export default function NetworkSearch() {
                                                 >
                                                     <Popup>
                                                         ASN{data.destAsn}<br />
-                                                        {data.destCityName}
+                                                        {data.destCity}
                                                     </Popup>
                                                 </Marker>
                                             </React.Fragment>
@@ -505,9 +505,9 @@ export default function NetworkSearch() {
                                         {/* Lines connecting source to destination with latency */}
                                         {performanceData.latencyData.map(data => (
                                             <Polyline
-                                                key={`${data.sourceCityName}-${data.destCityName}`}
+                                                key={`${data.srcCity}-${data.destCity}`}
                                                 positions={[
-                                                    [data.sourceLat, data.sourceLon],
+                                                    [data.srcLat, data.srcLon],
                                                     [data.destLat, data.destLon]
                                                 ]}
                                                 color="#1976d2"
@@ -515,8 +515,8 @@ export default function NetworkSearch() {
                                                 opacity={0.5}
                                             >
                                                 <Popup>
-                                                    Src: ASN{data.sourceAsn} {data.sourceCityName}<br />
-                                                    Dest: ASN{data.destAsn} {data.destCityName}<br />
+                                                    Src: ASN{data.srcAsn} {data.srcCity}<br />
+                                                    Dest: ASN{data.destAsn} {data.destCity}<br />
                                                     P70 Latency: {data.latency}ms
                                                 </Popup>
                                             </Polyline>
