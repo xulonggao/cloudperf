@@ -27,7 +27,7 @@ if [ "${deploy_type}" == "aws" ]; then
         --instance-type t3.nano \
         --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${detector_type}},{Key=CostCenter,Value=cloudperf-stack}]" \
         --user-data "#!/bin/bash
-curl -sSL https://raw.githubusercontent.com/tansoft/fping/refs/heads/develop/setup/install-linux.sh | bash" \
+curl -sSL https://raw.githubusercontent.com/tansoft/fping/refs/heads/develop/setup/install-linux.sh | sed 's/fping-job/${detector_type}/g' | bash" \
         --query 'Instances[0].InstanceId' \
         --output json \
         --region ${deploy_location}`

@@ -148,10 +148,8 @@ export default function NetworkSearch() {
     }, [selectedDestCountry, selectedDestCity]);
 
     const handleSearch = async () => {
-        //const srcCityIds = selectedSet
-        //    ? citySets.find(set => set.id === selectedSet)?.cityIds
-        //    : selectedAsns.map(asn => asn.cityId);
-        //const destCityIds = selectedDestAsns.map(asn => asn.cityId);
+        // Clear existing performance data first
+        setPerformanceData(null);
 
         const srcCityIds = selectedSet
             ? citySets.find(set => set.id === selectedSet)?.cityIds
