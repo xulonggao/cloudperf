@@ -72,7 +72,8 @@ const mockPerformanceData = {
     cityData: [
         { city: "New York", p70: 45 },
         { city: "San Francisco", p70: 55 }
-    ]
+    ],
+    rawData: []
 };
 
 const filterData = (data, query = '') => {

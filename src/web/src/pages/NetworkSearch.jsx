@@ -21,7 +21,13 @@ import {
     TextField,
     Card,
     CardContent,
-    Button
+    Button,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow
 } from '@mui/material';
 import {
     LineChart,
@@ -409,24 +415,6 @@ export default function NetworkSearch() {
                             </Grid>
                         </Grid>
 
-                        {/* Latency Series Chart */}
-                        <Grid item xs={12}>
-                            <Paper sx={{ p: 2 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    Latency Trend
-                                </Typography>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={performanceData.latencySeriesData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="latency" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Line type="monotone" dataKey="samples" stroke="#8884d8" />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </Paper>
-                        </Grid>
-
                         {/* Latency vs Distance Scatter Chart */}
                         <Grid item xs={12}>
                             <Paper sx={{ p: 2 }}>
@@ -599,6 +587,40 @@ export default function NetworkSearch() {
                                         ))}
                                     </MapContainer>
                                 </Box>
+                                <TableContainer sx={{ mt: 2 }}>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>Src</TableCell>
+                                                <TableCell>SrcASN</TableCell>
+                                                <TableCell>SrcIP</TableCell>
+                                                <TableCell>Dest</TableCell>
+                                                <TableCell>DestASN</TableCell>
+                                                <TableCell>DestIP</TableCell>
+                                                <TableCell align="right">Samples</TableCell>
+                                                <TableCell align="right">Min/Avg/Max(ms)</TableCell>
+                                                <TableCell align="right">P50/70/90/95(ms)</TableCell>
+                                                <TableCell align="right">Time</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {performanceData.rawData.map((data, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell>{data.srcCity}</TableCell>
+                                                    <TableCell>{data.srcAsn}</TableCell>
+                                                    <TableCell>{data.srcIP}</TableCell>
+                                                    <TableCell>{data.destCity}</TableCell>
+                                                    <TableCell>{data.destAsn}</TableCell>
+                                                    <TableCell>{data.destIP}</TableCell>
+                                                    <TableCell align="right">{data.samples}</TableCell>
+                                                    <TableCell align="right">{data.min}/{data.avg}/{data.max}</TableCell>
+                                                    <TableCell align="right">{data.p50}/{data.p70}/{data.p90}/{data.p95}</TableCell>
+                                                    <TableCell align="right">{data.time}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
                             </Paper>
                         </Grid>
                     </>

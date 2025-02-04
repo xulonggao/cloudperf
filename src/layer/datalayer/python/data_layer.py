@@ -303,6 +303,17 @@ def get_cityobject_by_keyword(keyword:str, limit=50):
         obj = (f"%{keyword}%",)
     return get_cityobject(filter, obj, limit)
 
+def get_latency_rawdata_cross_city(sourceCityId:str, destCityId:str):
+    pattern = r'^[\d,]+$'
+    print('rawdata query with:', sourceCityId, destCityId)
+    if not bool(re.match(pattern, sourceCityId)) or not bool(re.match(pattern, destCityId)):
+        return None
+    return cache_mysql_select(f'''
+select src_city_id as src, dist_city_id as dist, samples, latency_min as min, latency_max as max,
+latency_avg as avg,latency_p50 as p50,latency_p70 as p70,latency_p90 as p90,latency_p95 as p95,
+update_time from statistics where src_city_id in ({sourceCityId}) and dist_city_id in ({destCityId})
+''')
+
 def get_latency_data_cross_city(sourceCityId:str, destCityId:str):
     pattern = r'^[\d,]+$'
     print('query with:', sourceCityId, destCityId)
@@ -391,8 +402,11 @@ def friendly_cityandasnno(city):
 def friendly_cityandasn(city):
     return f"{friendly_cityname(city)} (ASN{city['asn']} {friendly_truncate_string(city['asnName'])})"
 
-def friendly_cityasn(city):
+def friendly_cityshortasn(city):
     return f"ASN{city['asn']} {friendly_truncate_string(city['asnName'])}"
+
+def friendly_cityasn(city):
+    return f"{city['asnName']} (ASN{city['asn']})"
 
 # 已知国家数量，已知city数量，已知asn数量
 # 稳定可ping数量，新增可ping数量，最近不可ping数量

@@ -32,11 +32,11 @@ def webapi_performance(requests):
     src = unquote_plus(requests['query']['src'])
     dist = unquote_plus(requests['query']['dist'])
     latencyData = data_layer.get_latency_data_cross_city(src, dist)
-    print(latencyData)
-    # [{'src': 1395638387, 'dist': 922075495, 'samples': Decimal('10'), 'min': 19600, 'max': 22200, 'avg': Decimal('20700.0000'), 'p50': Decimal('20000.0000'), 'p70': Decimal('21300.0000'), 'p90': Decimal('22000.0000'), 'p95': Decimal('22000.0000')},{},{}]
-    # src,dist,samples,min,max,avg,p50,p70,p90,p95",
+    rawData = data_layer.get_latency_rawdata_cross_city(src, dist)
+    # print(latencyData)
+    # src,dist,samples,min,max,avg,p50,p70,p90,p95
     # "1395638387,2228836286,10,23900,25500,24600.0000,24600.0000,24800.0000,25100.0000,25100.0000",
-    if latencyData == None:
+    if latencyData == None or rawData == None:
         return {'statusCode': 400, 'result': 'param src and dist invalid!'}
     srclist = src.split(',')
     distlist = dist.split(',')
@@ -44,13 +44,6 @@ def webapi_performance(requests):
         "samples": 0,
         "srcCityIds": len(srclist),
         "distCityIds": len(distlist),
-        "latencySeriesData": [
-            {"latency": 50, "samples": 100},
-            {"latency": 60, "samples": 10},
-            {"latency": 80, "samples": 20},
-            {"latency": 60, "samples": 30},
-            {"latency": 65, "samples": 15},
-        ],
         "timeSeriesData": [
             {"date": "2025-01-04","avgLatency": 50},
             {"date": "2025-01-03","avgLatency": 52},
@@ -62,7 +55,8 @@ def webapi_performance(requests):
         ],
         "asnData": [],
         "cityData": [],
-        "latencyData": []
+        "latencyData": [],
+        "rawData": [],
     }
     # 找到所有相关的city_id对应对象
     cityobjs = {}
@@ -91,11 +85,11 @@ def webapi_performance(requests):
             # 分cityid的延迟数据分列，取p70
             outdata['latencyData'].append({
                 'srcCity': data_layer.friendly_cityname(srcobj),
-                'srcAsn': data_layer.friendly_cityasn(srcobj),
+                'srcAsn': data_layer.friendly_cityshortasn(srcobj),
                 'srcLat': srcobj['latitude'],
                 'srcLon': srcobj['longitude'],
                 'destCity': data_layer.friendly_cityname(distobj),
-                'destAsn': data_layer.friendly_cityasn(distobj),
+                'destAsn': data_layer.friendly_cityshortasn(distobj),
                 'destLat': distobj['latitude'],
                 'destLon': distobj['longitude'],
                 'latency': round(item['p70']/1000, 1)
@@ -131,12 +125,29 @@ def webapi_performance(requests):
                 'p70': round(data[key][k]['data'] / data[key][k]['samples'] / 1000, 1)
             })
 
-    '''
-    p70最大的五个src，p70最大的五个dist
-    聚合完所有数据后得出：
-        p70最大的五个asn，p70最大的五个asn
-        p70最大的五个city，p70最大的五个city
-    '''
+    # 原始数据处理
+    for item in rawData:
+        if item['src'] in cityobjs and item['dist'] in cityobjs:
+            srcobj = cityobjs[item['src']]
+            distobj = cityobjs[item['dist']]
+            outdata['rawData'].append({
+                'srcCity': data_layer.friendly_cityname(srcobj) + " - " + str(item['src']),
+                'srcAsn': data_layer.friendly_cityasn(srcobj),
+                'srcIP': f"{srcobj['startIp']} - {srcobj['endIp']}",
+                'destCity': data_layer.friendly_cityname(distobj) + " - " + str(item['dist']),
+                'destAsn': data_layer.friendly_cityasn(distobj),
+                'destIP': f"{distobj['startIp']} - {distobj['endIp']}",
+                'samples': int(item['samples']),
+                'min': round(item['min']/1000, 2),
+                'max': round(item['max']/1000, 2),
+                'avg': round(item['avg']/1000, 2),
+                'p50': round(item['p50']/1000, 2),
+                'p70': round(item['p70']/1000, 2),
+                'p90': round(item['p90']/1000, 2),
+                'p95': round(item['p95']/1000, 2),
+                'time': item['update_time'].strftime('%Y-%m-%d')
+            })
+
     return {
         'statusCode': 200,
         'result': outdata
