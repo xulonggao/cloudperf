@@ -313,8 +313,8 @@ export default function NetworkSearch() {
                             variant="contained"
                             onClick={handleSearch}
                             disabled={
-                                (!selectedSet && (!selectedCity.length)) ||
-                                !selectedDestCity.length
+                                !((selectedSet || (selectedCity.length && asns.length)) &&
+                                    (selectedDestCity.length && destAsns.length))
                             }
                         >
                             Search
@@ -331,7 +331,7 @@ export default function NetworkSearch() {
                                     <Card>
                                         <CardContent>
                                             <Typography color="textSecondary" gutterBottom>
-                                                Sample Count
+                                                Samples (Selected Src/Dest)
                                             </Typography>
                                             <Typography variant="h5">
                                                 {performanceData.samples} ({performanceData.srcCityIds}/{performanceData.distCityIds})

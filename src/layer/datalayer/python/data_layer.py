@@ -326,7 +326,7 @@ avg(latency_p70) as p70,avg(latency_p90) as p90,avg(latency_p95) as p95
 from statistics where src_city_id in ({sourceCityId}) and dist_city_id in ({destCityId}) group by src_city_id,dist_city_id
 ''')
 
-CITYSET_DEFAULT_CACHE_SQL = 'select id,name,cityids as cityIds from `cityset`'
+CITYSET_DEFAULT_CACHE_SQL = 'select id,name,cityids as cityIds from `cityset` order by length(cityids) desc, name'
 
 def get_citysets():
     return cache_mysql_select(CITYSET_DEFAULT_CACHE_SQL)
@@ -393,6 +393,16 @@ def friendly_truncate_string(s, max_length=15, cutstr=[' ', ','], append='...'):
 def friendly_cityname(city):
     if city['asn'] == 16509 or city['asn'] == 14618:
         if city['region']:
+            # 总结：新region大部分都用city就好，region变成真正的省了
+            region_mapping = {
+                'Hesse':'Frankfurt', 'Kuala Lumpur':'Malaysia', 'Querétaro':'Mexico', 'Telangana':'Hyderabad',
+                'Western Cape':'Cape Town', 'Victoria':'Melbourne', 'Maharashtra':'Mumbai', 'Incheon':'Seoul',
+                'New South Wales':'Sydney', 'Bangkok':'Thailand', 'Quebec':'Canada', 'Alberta':'Calgary',
+                'Leinster':'Ireland', 'England':'London', 'Lombardy':'Milan', 'Île-de-France':'Paris',
+                'Aragon':'Spain', 'Southern Governorate':'Bahrain', 'Dubai':'UAE',
+            }
+            if city['region'] in region_mapping:
+                return region_mapping[city['region']]
             return city['region']
     return city['name']
 
@@ -622,7 +632,7 @@ def get_pingjob_by_cityid(src_city_id:int):
             last_city_id = data
     # 如果没有数据了，从数据库中查询，然后缓存到redis中
     if return_city_id == 0:
-        sql = 'SELECT city_id FROM pingable where city_id>%s and lastresult>=128 GROUP BY city_id limit 20'
+        sql = 'SELECT city_id FROM pingable where city_id>%s and lastresult>=128 GROUP BY city_id limit 50'
         ipdatas = mysql_select(sql, (last_city_id,))
         if ipdatas == None or len(ipdatas) == 0:
             # 如果没有数据了，从头开始查询

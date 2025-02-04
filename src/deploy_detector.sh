@@ -18,13 +18,18 @@ detector_type=${3:-fping-job}
 echo "start deploy ${deploy_type} ${deploy_location} ${detector_type} ..."
 
 if [ "${deploy_type}" == "aws" ]; then
+    instance_type="t3.nano"
+    # 探测的机器，会最多固定使用10MB带宽和100K的包量，cpu 最高 30%，10任务并发，不需要升级机型
+    #if [ "${detector_type}" == "fping-pingable" ]; then
+    #    instance_type="t3.micro"
+    #fi
     # aws部署
     # https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/finding-an-ami.html
     # aws ec2 describe-images --owners amazon --filters "Name=name,Values=amzn2-ami-hvm-2.0.20200619.0-x86_64-gp2" --region ap-southeast-1
     # --security-group-ids sg-0b1b2c3d4e5f6g7h --subnet-id subnet-0a1b2c3d4e5f6g7h --key-name 'barry@localhost'
     instance=`aws ec2 run-instances \
         --image-id resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 \
-        --instance-type t3.nano \
+        --instance-type ${instance_type} \
         --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${detector_type}},{Key=CostCenter,Value=cloudperf-stack}]" \
         --user-data "#!/bin/bash
 curl -sSL https://raw.githubusercontent.com/tansoft/fping/refs/heads/develop/setup/install-linux.sh | sed 's/fping-job/${detector_type}/g' | bash" \

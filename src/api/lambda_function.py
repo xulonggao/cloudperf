@@ -374,7 +374,7 @@ def fping_logic(requests):
         data_layer.update_client_status(requests['srcip'], 'ping')
         # get ping job here, ensure buffer data enough
         data_layer.refresh_iprange_check()
-        for i in range(0, 10):
+        for i in range(0, 20):
             obj = data_layer.cache_pop(settings.CACHEKEY_PINGABLE)
             if obj:
                 stip = ipaddress.IPv4Address(obj['start_ip'])
@@ -393,15 +393,19 @@ def fping_logic(requests):
             ret["interval"] = 1
     else:
         data_layer.update_client_status(requests['srcip'], 'data')
-        job = data_layer.get_pingjob_by_cityid(city_id)
-        #print(job)
-        if job != None:
-            ips = [str(ipaddress.IPv4Address(x)) for x in job['ips']]
-            print(f"fetch data job: {job['city_id']} {len(ips)}")
-            ret["job"].append({
-                "jobid": 'data' + str(job['city_id']),
-                "command": "fping -a -q -C 11 " + ' '.join(ips),
-            })
+        for i in range(0, 10):
+            job = data_layer.get_pingjob_by_cityid(city_id)
+            #print(job)
+            if job != None:
+                ips = [str(ipaddress.IPv4Address(x)) for x in job['ips']]
+                print(f"fetch data job: {job['city_id']} {len(ips)}")
+                ret["job"].append({
+                    "jobid": 'data' + str(job['city_id']),
+                    "command": "fping -a -q -C 11 " + ' '.join(ips),
+                })
+            else:
+                break
+        if len(ret["job"]) > 0:
             ret["next"] = "data"
             ret["interval"] = 1
     return {
