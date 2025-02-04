@@ -90,12 +90,12 @@ def webapi_performance(requests):
             distobj = cityobjs[item['dist']]
             # 分cityid的延迟数据分列，取p70
             outdata['latencyData'].append({
-                'srcCity': srcobj['name'],
-                'srcAsn': srcobj['asn'],
+                'srcCity': data_layer.friendly_cityname(srcobj),
+                'srcAsn': data_layer.friendly_cityasn(srcobj),
                 'srcLat': srcobj['latitude'],
                 'srcLon': srcobj['longitude'],
-                'destCity': distobj['name'],
-                'destAsn': distobj['asn'],
+                'destCity': data_layer.friendly_cityname(distobj),
+                'destAsn': data_layer.friendly_cityasn(distobj),
                 'destLat': distobj['latitude'],
                 'destLon': distobj['longitude'],
                 'latency': round(item['p70']/1000, 1)
@@ -321,13 +321,13 @@ def fping_logic(requests):
                     if is_ip_address(out):
                         ips.append(out)
                 print(f"pingjob: {jobid} status: {obj['status']} ips: {len(ips)}")
-                print(ips)
+                # print(ips)
                 if len(ips) > 0:
                     data_layer.update_pingable_ip(jobid, ips)
             elif jobtype == 'data':
                 print(f"datajob: {jobid} status: {obj['status']}")
-                print(obj['stdout'])
-                print(obj['stderr'])
+                #print(obj['stdout'])
+                #print(obj['stderr'])
                 # stdout:
                 # [DEBUG] CPU time used: 0.083289 sec
                 # stderr:
@@ -383,7 +383,7 @@ def fping_logic(requests):
     else:
         data_layer.update_client_status(requests['srcip'], 'data')
         job = data_layer.get_pingjob_by_cityid(city_id)
-        print(job)
+        #print(job)
         if job != None:
             ips = [str(ipaddress.IPv4Address(x)) for x in job['ips']]
             print(f"fetch data job: {job['city_id']} {len(ips)}")

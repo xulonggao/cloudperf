@@ -371,11 +371,28 @@ def friendly_intval(sec:int):
         msg = f"{sec:.1f} secs ago"
     return msg
 
-def get_friendly_region(city):
+def friendly_truncate_string(s, max_length=15, cutstr=[' ', ','], append='...'):
+    if len(s) <= max_length:
+        return s
+    for i in range(max_length, 0, -1):
+        if s[i-1] in cutstr:
+            return s[:i]+append
+    return s[:max_length]+append
+
+def friendly_cityname(city):
     if city['asn'] == 16509 or city['asn'] == 14618:
         if city['region']:
-            return f"{city['region']} (ASN{city['asn']})"
-    return f"{city['name']} (ASN{city['asn']})"
+            return city['region']
+    return city['name']
+
+def friendly_cityandasnno(city):
+    return f"{friendly_cityname(city)} (ASN{city['asn']})"
+
+def friendly_cityandasn(city):
+    return f"{friendly_cityname(city)} (ASN{city['asn']} {friendly_truncate_string(city['asnName'])})"
+
+def friendly_cityasn(city):
+    return f"ASN{city['asn']} {friendly_truncate_string(city['asnName'])}"
 
 # 已知国家数量，已知city数量，已知asn数量
 # 稳定可ping数量，新增可ping数量，最近不可ping数量
@@ -414,7 +431,7 @@ def query_statistics_data(datas = 'all-country,all-city,all-asn,ping-stable,ping
                         msg += ', Queue: ' + str(cache_listlen(settings.CACHEKEY_CITYJOB + str(city[0]['cityId'])))
                     ping_clients.append({
                         'ip': ip,
-                        'region': get_friendly_region(city[0]),
+                        'region': friendly_cityandasnno(city[0]),
                         'status': msg
                     })
             outs[data] = ping_clients

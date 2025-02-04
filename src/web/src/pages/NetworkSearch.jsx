@@ -28,6 +28,8 @@ import {
     Line,
     BarChart,
     Bar,
+    ScatterChart,
+    Scatter,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -45,6 +47,19 @@ L.Icon.Default.mergeOptions({
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
+// Calculate distance between two points using Haversine formula
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
 
 export default function NetworkSearch() {
     // State for source selection
@@ -412,6 +427,69 @@ export default function NetworkSearch() {
                             </Paper>
                         </Grid>
 
+                        {/* Latency vs Distance Scatter Chart */}
+                        <Grid item xs={12}>
+                            <Paper sx={{ p: 2 }}>
+                                <Typography variant="h6" gutterBottom>
+                                    Latency vs Distance
+                                </Typography>
+                                <ResponsiveContainer width="100%" height={400}>
+                                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                        <CartesianGrid />
+                                        <XAxis
+                                            type="number"
+                                            dataKey="distance"
+                                            name="Distance"
+                                            unit=" km"
+                                            label={{ value: 'Distance (km)', position: 'bottom' }}
+                                        />
+                                        <YAxis
+                                            type="number"
+                                            dataKey="latency"
+                                            name="Latency"
+                                            unit=" ms"
+                                            label={{ value: 'Latency (ms)', angle: -90, position: 'left' }}
+                                        />
+                                        <Tooltip
+                                            cursor={{ strokeDasharray: '3 3' }}
+                                            formatter={(value, name, props) => {
+                                                if (name === 'Distance') return `${Math.round(value)} km`;
+                                                if (name === 'Latency') return `${value} ms`;
+                                                return value;
+                                            }}
+                                            content={({ payload, active }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
+                                                            <p>{`Source: ${data.srcCity} ${data.srcAsn}`}</p>
+                                                            <p>{`Destination: ${data.destCity} ${data.destAsn}`}</p>
+                                                            <p>{`Distance: ${Math.round(data.distance)} km`}</p>
+                                                            <p>{`Latency: ${data.latency} ms`}</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                        {Array.from(new Set(performanceData.latencyData.map(d => d.srcCity))).map((srcCity, index) => (
+                                            <Scatter
+                                                key={srcCity}
+                                                name={srcCity}
+                                                data={performanceData.latencyData
+                                                    .filter(d => d.srcCity === srcCity)
+                                                    .map(d => ({
+                                                        ...d,
+                                                        distance: calculateDistance(d.srcLat, d.srcLon, d.destLat, d.destLon)
+                                                    }))}
+                                                fill={`hsl(${(index * 360) / 20}, 70%, 50%)`}
+                                            />
+                                        ))}
+                                    </ScatterChart>
+                                </ResponsiveContainer>
+                            </Paper>
+                        </Grid>
+
                         {/* Time Series Chart */}
                         <Grid item xs={12}>
                             <Paper sx={{ p: 2 }}>
@@ -486,16 +564,16 @@ export default function NetworkSearch() {
                                                     position={[data.srcLat, data.srcLon]}
                                                 >
                                                     <Popup>
-                                                        ASN{data.srcAsn}<br />
-                                                        {data.srcCity}
+                                                        {data.srcCity}<br />
+                                                        {data.srcAsn}
                                                     </Popup>
                                                 </Marker>
                                                 <Marker
                                                     position={[data.destLat, data.destLon]}
                                                 >
                                                     <Popup>
-                                                        ASN{data.destAsn}<br />
-                                                        {data.destCity}
+                                                        {data.destCity}<br />
+                                                        {data.destAsn}
                                                     </Popup>
                                                 </Marker>
                                             </React.Fragment>
@@ -513,8 +591,8 @@ export default function NetworkSearch() {
                                                 opacity={0.5}
                                             >
                                                 <Popup>
-                                                    Src: ASN{data.srcAsn} {data.srcCity}<br />
-                                                    Dest: ASN{data.destAsn} {data.destCity}<br />
+                                                    Src: {data.srcCity} ({data.srcAsn})<br />
+                                                    Dest: {data.destCity} ({data.destAsn})<br />
                                                     P70 Latency: {data.latency}ms
                                                 </Popup>
                                             </Polyline>
