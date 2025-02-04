@@ -27,11 +27,9 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TableRow
+    TableRow,
 } from '@mui/material';
 import {
-    LineChart,
-    Line,
     BarChart,
     Bar,
     ScatterChart,
@@ -40,7 +38,8 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
-    ResponsiveContainer
+    ResponsiveContainer,
+    Legend
 } from 'recharts';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -460,6 +459,19 @@ export default function NetworkSearch() {
                                                 return null;
                                             }}
                                         />
+                                        <Legend
+                                            layout="vertical"
+                                            align="middle"
+                                            verticalAlign="top"
+                                            wrapperStyle={{
+                                                top: 40, left: 100,
+                                                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                                                padding: '5px', position: 'absolute', fontSize: '12px',
+                                                border: '1px solid #d5d5d5', borderRadius: '3px'
+                                            }}
+                                            iconSize={10}
+                                            iconType="circle"
+                                        />
                                         {Array.from(new Set(performanceData.latencyData.map(d => d.srcCity))).map((srcCity, index) => (
                                             <Scatter
                                                 key={srcCity}
@@ -478,20 +490,92 @@ export default function NetworkSearch() {
                             </Paper>
                         </Grid>
 
-                        {/* Time Series Chart */}
+                        {/* Time vs P70 Latency Scatter Chart */}
                         <Grid item xs={12}>
                             <Paper sx={{ p: 2 }}>
                                 <Typography variant="h6" gutterBottom>
-                                    Latency Trend (Last 7 Days)
+                                    Time vs P70 Latency
                                 </Typography>
                                 <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={performanceData.timeSeriesData}>
+                                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Line type="monotone" dataKey="p70Latency" stroke="#8884d8" />
-                                    </LineChart>
+                                        <XAxis
+                                            dataKey="time"
+                                            type="number"
+                                            name="time"
+                                            domain={['dataMin', 'dataMax']}
+                                            label={{ value: 'Record Time', position: 'bottom' }}
+                                            tickFormatter={(value) => {
+                                                const date = new Date(value * 1000);
+                                                return date.toLocaleDateString('zh-CN', {
+                                                    year: 'numeric', month: '2-digit', day: '2-digit',
+                                                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                                                    hour12: false
+                                                });
+                                            }}
+                                            scale="time"
+                                        />
+                                        <YAxis
+                                            dataKey="p70"
+                                            name="P70 Latency"
+                                            unit=" ms"
+                                            label={{ value: 'P70 Latency (ms)', angle: -90, position: 'left' }}
+                                        />
+                                        <Tooltip
+                                            cursor={{ strokeDasharray: '3 3' }}
+                                            content={({ payload, active }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
+                                                            <p>{`Time: ${new Date(parseInt(data.time) * 1000).toLocaleString('zh-CN', {
+                                                                month: '2-digit', day: '2-digit',
+                                                                hour: '2-digit', minute: '2-digit',
+                                                                hour12: false
+                                                            })}`}</p>
+                                                            <p>{`Source: ${data.srcCity} (${data.srcAsn})`}</p>
+                                                            <p>{`Destination: ${data.destCity} (${data.destAsn})`}</p>
+                                                            <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
+                                                            <p>{`P50/P70/P90/P95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
+                                                            <p>{`Samples: ${data.samples}`}</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                        <Legend
+                                            layout="vertical"
+                                            align="middle"
+                                            verticalAlign="top"
+                                            wrapperStyle={{
+                                                top: 40, left: 100,
+                                                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                                                padding: '5px', position: 'absolute', fontSize: '12px',
+                                                border: '1px solid #d5d5d5', borderRadius: '3px'
+                                            }}
+                                            iconSize={10}
+                                            iconType="circle"
+                                        />
+                                        <Scatter
+                                            name="Insufficient"
+                                            data={performanceData.rawData
+                                                .filter(d => d.samples < 200)}
+                                            fill="#ff7300"
+                                        />
+                                        <Scatter
+                                            name="Moderate"
+                                            data={performanceData.rawData
+                                                .filter(d => d.samples >= 200 && d.samples < 600)}
+                                            fill="#8884d8"
+                                        />
+                                        <Scatter
+                                            name="Sufficient"
+                                            data={performanceData.rawData
+                                                .filter(d => d.samples >= 600)}
+                                            fill="#82ca9d"
+                                        />
+                                    </ScatterChart>
                                 </ResponsiveContainer>
                             </Paper>
                         </Grid>
@@ -615,7 +699,15 @@ export default function NetworkSearch() {
                                                     <TableCell align="right">{data.samples}</TableCell>
                                                     <TableCell align="right">{data.min}/{data.avg}/{data.max}</TableCell>
                                                     <TableCell align="right">{data.p50}/{data.p70}/{data.p90}/{data.p95}</TableCell>
-                                                    <TableCell align="right">{data.time}</TableCell>
+                                                    <TableCell align="right">{new Date(parseInt(data.time) * 1000).toLocaleString('zh-CN', {
+                                                        year: 'numeric',
+                                                        month: '2-digit',
+                                                        day: '2-digit',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        second: '2-digit',
+                                                        hour12: false
+                                                    }).replace(/\//g, ':').replace(/,/, '').replace(/:/g, '-', 2)}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>

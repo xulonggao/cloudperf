@@ -5,7 +5,7 @@ class OnlineIPTracker:
     def __init__(self, redis_pool, cache_key:str):
         self.redis = redis.StrictRedis(connection_pool=redis_pool)
         self.key = cache_key
-        self.expire_seconds = 86400 # 300  # 5分钟
+        self.expire_seconds = 36000 # 10小时
 
     def update_ip(self, ip):
         """更新IP的最后访问时间"""

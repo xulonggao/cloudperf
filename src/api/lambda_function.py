@@ -145,7 +145,7 @@ def webapi_performance(requests):
                 'p70': round(item['p70']/1000, 2),
                 'p90': round(item['p90']/1000, 2),
                 'p95': round(item['p95']/1000, 2),
-                'time': item['update_time'].strftime('%Y-%m-%d')
+                'time': item['update_time'].timestamp()
             })
 
     return {
