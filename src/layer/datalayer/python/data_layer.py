@@ -9,6 +9,7 @@ import boto3
 from onlineip_tracker import OnlineIPTracker
 from typing import List, Dict, Any
 from botocore.exceptions import ClientError
+from password_validator import EnhancedPasswordValidator
 
 import pymysql
 from pymysql.constants import FIELD_TYPE
@@ -216,7 +217,7 @@ def cache_listlen(key:str):
         return 0
 
 def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE_TTL):
-    key = f'{settings.CACHEKEY_SQL}ov_{hash(sql)}'
+    key = settings.CACHEKEY_SQL + 'ov_' + hash(sql)
     val = cache_get(key)
     if val != None:
         return val
@@ -225,11 +226,11 @@ def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE
     return ret
 
 def delete_mysql_select_cache(sql:str, obj = None, fetchObject = True):
-    key = f'{settings.CACHEKEY_SQL}sl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
+    key = settings.CACHEKEY_SQL + 'sl_' + hash(sql) + hash(obj) + hash(fetchObject)
     return cache_delete(key)
 
 def cache_mysql_select(sql:str, obj = None, fetchObject = True, ttl:int = settings.CACHE_BASE_TTL):
-    key = f'{settings.CACHEKEY_SQL}sl_{hash(sql)}{hash(obj)}{hash(fetchObject)}'
+    key = settings.CACHEKEY_SQL + 'sl_' + hash(sql) + hash(obj) + hash(fetchObject)
     val = cache_get(key)
     if val != None:
         return val
@@ -575,7 +576,7 @@ def refresh_iprange_check(queue_url = ''):
     if queue_url != '':
         # 获取队列大小
         result = get_sqs_queue_size(queue_url)
-        print(result)
+        # print(result)
         if result['statusCode'] != 200:
             return {
                 'status': result['statusCode'],
@@ -593,12 +594,12 @@ def refresh_iprange_check(queue_url = ''):
 
     # 检查 iprange 表，根据 lastcheck_time 排序，找出 lastcheck_time < now - 7days 的数据，准备进行更新
     datas = check_expired_iprange(days=14, limit=20)
-    print(datas)
+    # print(datas)
     # 通过 start_ip end_ip city_id 来更新对应 pingable 表的数据，更新 lastresult 右移1位高位为0，表示这个ip最新数据没有更新了
     # 检查 pingable 表，删除 lastresult 全为 0 的条目，因为该ip已经连续不可ping了（就算新的任务他又可ping了，重新插入就是）
     messages = []
     for data in datas:
-        print(data)
+        # print(data)
         update_pingable_result(data['city_id'], data['start_ip'], data['end_ip'])
         subnets = split_ip_range(data['start_ip'], data['end_ip'])
         for subnet in subnets:
@@ -606,7 +607,7 @@ def refresh_iprange_check(queue_url = ''):
     # 提交 start_ip end_ip city_id 的 ping 探测任务到 queue 中，queue 陆续完成探测任务时，会去更新对应 ip 的 lastresult 值，把新移位的值置为1000b，不存在的会插入
     if queue_url != '':
         result = send_sqs_messages_batch(queue_url, messages)
-        print(result)
+        # print(result)
     else:
         for message in messages:
             result = cache_push(settings.CACHEKEY_PINGABLE, message)
@@ -681,5 +682,51 @@ def np_percentile(sorted_data, p, accurate = False):
     fraction = rank - index_floor
     return sorted_data[index_floor] * (1 - fraction) + sorted_data[index_ceil] * fraction
 
-def validate_user(auth:int, requests):
-    return True
+def validate_user_cookies(auth:int, cookies:str):
+    if auth == settings.AUTH_NOTNEED:
+        return True
+    if cookies == '':
+        return False
+    start = cookies.find("token=")
+    if start == -1:
+        return False
+    start += 6
+    end = cookies.find(";", start)
+    token = cookies[start:] if end == -1 else cookies[start:end]
+    val = cache_get(settings.CACHEKEY_USERAUTH + hash(token))
+    if val != None and (auth & val) == auth:
+        return True
+    return False
+
+def validate_user(user:str, password:str):
+    if not user.isalnum():
+        return None
+    ret = mysql_select('select password,auth from user where name=?',(user,))
+    if ret == None or len(ret) == 0:
+        return None
+    if ret[0]['password'] == hash(hash(password)+user+'myuserencrpt'):
+        key = hash(str(time.time()) + user)
+        cache_set(settings.CACHEKEY_USERAUTH + hash(key), ret[0]['auth'], settings.CACHE_BASE_TTL)
+        return key
+    return None
+
+# is_valid, errors, stats = create_user()
+def create_user(user:str, password:str, auth:int=settings.AUTH_BASEUSER):
+    if not user.isalnum():
+        return {
+            'status': 403,
+            'msg': 'username must only contain letter or number'
+        }
+    validator = EnhancedPasswordValidator()
+    is_valid, errors, stats = validator.validate(password)
+    if not is_valid:
+        return {
+            'status': 403,
+            'msg': '; '.join(errors)
+        }
+    password = hash(hash(password)+user+'myuserencrpt')
+    mysql_execute('INSERT INTO `user`(`name`,`password`,`auth`) VALUES(%s, %s, %s) ON DUPLICATE KEY UPDATE password=%s,auth=%s', (user, password, auth, password, auth))
+    return {
+        'status': 200,
+        'msg': 'success'
+    }

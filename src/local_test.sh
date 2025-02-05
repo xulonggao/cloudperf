@@ -6,6 +6,7 @@
 # ./local_test.sh api job GET '/job' 'a=b&c=d' 'body'
 # ./local_test.sh api job POST '/job' 'a=b&c=d' 'body'
 # ./local_test.sh admin '{"action":"get_city_id","param":"3.13.0.254"}'
+# ./local_test.sh admin '{"action":"create_user","param":"admin"}'
 
 DB_WRITE_HOST=127.0.0.1
 DB_READ_HOST=127.0.0.1

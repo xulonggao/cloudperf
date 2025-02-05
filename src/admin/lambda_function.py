@@ -4,6 +4,9 @@ import zipfile
 import boto3
 from urllib.parse import urlparse
 import data_layer
+import settings
+import secrets
+import string
 
 def download_from_s3(s3_path):
     """
@@ -116,6 +119,13 @@ def exec_sqlfile(sql_file):
             except:
                 pass
 
+def create_user(username):
+    password = secrets.choice(string.ascii_uppercase) + ''.join(secrets.choice(string.ascii_lowercase) for _ in range(3)) + ''.join(secrets.choice(string.digits) for _ in range(3)) + secrets.choice("!@#$%^&*")
+    print(f'general password for {username}: {password}')
+    ret = data_layer.create_user(username, password, settings.AUTH_ADMIN)
+    print(ret)
+    return ret
+
 # Example usage:
 # event = {"action":"exec_sqlfile","param":"update.sql"}
 # event = {"action":"exec_sqlfile","param":"updates.zip"}
@@ -123,6 +133,7 @@ def exec_sqlfile(sql_file):
 # event = {"action":"exec_sqlfile","param":"s3://my-bucket/sql/updates.zip"}
 # event = {"action":"exec_sql","param":"init_db"}
 # event = {"action":"exec_sql","param":"select * from asn;"}
+# event = {"action":"create_user","param":"myuser"}
 # or s3 notify message
 def lambda_handler(event, context):
     try:

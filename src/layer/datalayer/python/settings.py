@@ -13,7 +13,10 @@ CACHEKEY_SQL = 'sql'
 CACHEKEY_PINGABLE = 'ping'
 # 用于测试延迟任务的缓存
 CACHEKEY_CITYJOB = 'job'
+# 用于报告在线客户端
 CACHEKEY_ONLINE_SERVERS = 'online'
+# 用于登录用户授权
+CACHEKEY_USERAUTH = 'user'
 
 DB_READ_HOST='rds-r.cloudperf.vpc'
 DB_WRITE_HOST='rds.cloudperf.vpc'

@@ -57,14 +57,6 @@ const mockPerformanceData = {
     p70: 50,
     p90: 42,
     p95: 42,
-    latencySeriesData: Array(7).fill().map((_, i) => ({
-        latency: Math.floor(Math.random() * 20 + 35),
-        samples: Math.floor(Math.random() * 20 + 35)
-    })),
-    timeSeriesData: Array(7).fill().map((_, i) => ({
-        date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        p70Latency: Math.floor(Math.random() * 20 + 35)
-    })),
     asnData: [
         { asn: "AS7922", p70: 42 },
         { asn: "AS3356", p70: 48 }

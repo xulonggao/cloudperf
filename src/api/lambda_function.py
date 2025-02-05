@@ -44,15 +44,6 @@ def webapi_performance(requests):
         "samples": 0,
         "srcCityIds": len(srclist),
         "distCityIds": len(distlist),
-        "timeSeriesData": [
-            {"date": "2025-01-04","avgLatency": 50},
-            {"date": "2025-01-03","avgLatency": 52},
-            {"date": "2025-01-02","avgLatency": 48},
-            {"date": "2025-01-01","avgLatency": 39},
-            {"date": "2024-12-31","avgLatency": 48},
-            {"date": "2024-12-30","avgLatency": 45},
-            {"date": "2024-12-29","avgLatency": 51}
-        ],
         "asnData": [],
         "cityData": [],
         "latencyData": [],
@@ -155,11 +146,19 @@ def webapi_performance(requests):
 
 # {username: "admin", password: "admin"}
 def webapi_login(requests):
+    data = json.loads(requests['body'])
+    if 'username' in data and 'password' in data:
+        ret = data_layer.validate_user(data['username'], data['password'])
+        if ret != None:
+            return {
+                'statusCode': 200,
+                'result': {
+                    "token": ret
+                }
+            }
     return {
-        'statusCode': 200,
-        'result': {
-            "token": "mock-jwt-token"
-        }
+        'statusCode': 403,
+        'result': "username or password error!"
     }
 
 # country=US&city=US-NYC
@@ -317,7 +316,7 @@ def fping_logic(requests):
             next = requests['query']['next']
         else:
             next = ''
-        print(f"receive {len(jobResult)} {jobtype} job")
+        print(f"receive {len(jobResult)} job")
         for obj in jobResult:
             jobtype = obj['jobid'][:4]
             jobid = int(obj['jobid'][4:])
@@ -417,11 +416,11 @@ def fping_logic(requests):
     }
 
 def lambda_handler(event, context):
-    #print(event)
+    # print(event)
     requests = {'version': '1.0'}
     if 'version' in event:
         # 兼容 API Gateway
-        # https://docs.aws.amazon.com/zh_cn/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html#http-api-develop-integrations-lambda.response
+        # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
         if event['version'] == '2.0':
             requests = {
                 'version': 'apigw-httpapi2.0',
@@ -430,7 +429,8 @@ def lambda_handler(event, context):
                 'method': event['requestContext']['http']['method'],
                 'body': event['body'] if 'body' in event else null,
                 'path': event['requestContext']['http']['path'],
-                'query': event['queryStringParameters']
+                'query': event['queryStringParameters'],
+                'cookie': event['headers']['cookie'] if 'cookie' in event['headers'] else '',
             }
         elif event['version'] == '1.0':
             requests = {
@@ -440,7 +440,8 @@ def lambda_handler(event, context):
                 'method': event['requestContext']['httpMethod'],
                 'body': event['body'],
                 'path': event['requestContext']['path'],
-                'query': event['queryStringParameters']
+                'query': event['queryStringParameters'],
+                'cookie': event['headers']['cookie'] if 'cookie' in event['headers'] else '',
             }
     else:
         # 兼容 ALB
@@ -455,7 +456,8 @@ def lambda_handler(event, context):
             'method': event['httpMethod'],
             'body': event['body'],
             'path': event['path'],
-            'query': event['queryStringParameters']
+            'query': event['queryStringParameters'],
+            'cookie': event['headers']['cookie'] if 'cookie' in event['headers'] else '',
         }
     requests['next'] = requests['query']['next'] if 'next' in requests['query'] else ''
     apimapping = {
@@ -484,7 +486,7 @@ def lambda_handler(event, context):
     else:
         print(requests)
         route = apimapping[requests['path']]
-        if not data_layer.validate_user(route[1], requests):
+        if not data_layer.validate_user_cookies(route[1], requests['cookie']):
             ret = {'statusCode':403, 'result':'forbidden'}
         else:
             ret = route[0](requests)

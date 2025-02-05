@@ -81,3 +81,10 @@ CREATE TABLE IF NOT EXISTS `cityset` (
     `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY `name` (`name`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT '城市集合';
+
+CREATE TABLE IF NOT EXISTS `user` (
+    `name` varchar(32) NOT NULL PRIMARY KEY COMMENT '用户名字',
+    `password` varchar(32) NOT NULL COMMENT '密码哈希',
+    `auth` INT UNSIGNED NOT NULL COMMENT '权限',
+    `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT '用户账号和权限';
