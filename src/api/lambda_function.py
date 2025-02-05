@@ -317,6 +317,7 @@ def fping_logic(requests):
             next = requests['query']['next']
         else:
             next = ''
+        print(f"receive {len(jobResult)} {jobtype} job")
         for obj in jobResult:
             jobtype = obj['jobid'][:4]
             jobid = int(obj['jobid'][4:])
@@ -331,12 +332,12 @@ def fping_logic(requests):
                         continue
                     if is_ip_address(out):
                         ips.append(out)
-                print(f"pingjob: {jobid} status: {obj['status']} ips: {len(ips)}")
+                #print(f"pingjob: {jobid} status: {obj['status']} ips: {len(ips)}")
                 # print(ips)
                 if len(ips) > 0:
                     data_layer.update_pingable_ip(jobid, ips)
             elif jobtype == 'data':
-                print(f"datajob: {jobid} status: {obj['status']}")
+                #print(f"datajob: {jobid} status: {obj['status']}")
                 #print(obj['stdout'])
                 #print(obj['stderr'])
                 # stdout:
@@ -379,7 +380,7 @@ def fping_logic(requests):
             if obj:
                 stip = ipaddress.IPv4Address(obj['start_ip'])
                 etip = ipaddress.IPv4Address(obj['end_ip'])
-                print(f"fetch ping job: {stip} {etip} {obj['city_id']}")
+                #print(f"fetch ping job: {stip} {etip} {obj['city_id']}")
                 ret["job"].append({
                     "jobid": 'ping' + str(obj['city_id']),
                     # disable stderr log here with 2> /dev/null , but it will cause error
@@ -388,6 +389,7 @@ def fping_logic(requests):
                 })
             else:
                 break
+        print(f"fetch {len(ret['job'])} ping job")
         if len(ret["job"]) > 0:
             ret["next"] = 'ping'
             ret["interval"] = 1
@@ -398,14 +400,15 @@ def fping_logic(requests):
             #print(job)
             if job != None:
                 ips = [str(ipaddress.IPv4Address(x)) for x in job['ips']]
-                print(f"fetch data job: {job['city_id']} {len(ips)}")
+                #print(f"fetch data job: {job['city_id']} {len(ips)}")
                 ret["job"].append({
                     "jobid": 'data' + str(job['city_id']),
                     "command": "fping -a -q -C 11 " + ' '.join(ips),
                 })
             else:
                 break
-        if len(ret["job"]) > 0:
+        print(f"fetch {len(ret['job'])} data job")
+        if len(ret['job']) > 0:
             ret["next"] = "data"
             ret["interval"] = 1
     return {
@@ -414,11 +417,10 @@ def fping_logic(requests):
     }
 
 def lambda_handler(event, context):
-    print(event)
-    if 'logic' in event:
-        pass
+    #print(event)
     requests = {'version': '1.0'}
     if 'version' in event:
+        # 兼容 API Gateway
         # https://docs.aws.amazon.com/zh_cn/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html#http-api-develop-integrations-lambda.response
         if event['version'] == '2.0':
             requests = {
@@ -441,6 +443,7 @@ def lambda_handler(event, context):
                 'query': event['queryStringParameters']
             }
     else:
+        # 兼容 ALB
         # 健康检查字段：
         # {'requestContext': {'elb': {'targetGroupArn': 'arn:aws:elasticloadbalancing:us-east-1:675857233193:targetgroup/Cloudp-cloud-Y6ZDQYYVEO72/ba784127f812d2e6'}},
         # 'httpMethod': 'GET', 'path': '/', 'queryStringParameters': {}, 'headers': {'user-agent': 'ELB-HealthChecker/2.0'}, 
@@ -455,21 +458,23 @@ def lambda_handler(event, context):
             'query': event['queryStringParameters']
         }
     requests['next'] = requests['query']['next'] if 'next' in requests['query'] else ''
-    print(requests)
     apimapping = {
-        '/job':fping_logic,
-        '/api/status': webapi_status,
-        '/api/ipinfo': webapi_ipinfo,
-        '/api/asninfo': webapi_asninfo,
-        '/api/cityset': webapi_cityset,
-        '/api/country': webapi_country,
-        '/api/city': webapi_city,
-        '/api/asn': webapi_asn,
-        '/api/performance': webapi_performance,
-        '/api/login': webapi_login,
-        '/api/runsql': webapi_runsql,
-        '/api/redis': webapi_redis,
-        '/api/statistics': webapi_statistics
+        '/job':[fping_logic, settings.AUTH_NOTNEED],
+        '/api/login': [webapi_login, settings.AUTH_NOTNEED],
+
+        '/api/ipinfo': [webapi_ipinfo, settings.AUTH_BASEUSER],
+        '/api/asninfo': [webapi_asninfo, settings.AUTH_BASEUSER],
+        '/api/country': [webapi_country, settings.AUTH_BASEUSER],
+        '/api/city': [webapi_city, settings.AUTH_BASEUSER],
+        '/api/asn': [webapi_asn, settings.AUTH_BASEUSER],
+        '/api/performance': [webapi_performance, settings.AUTH_BASEUSER],
+
+        #'/api/status': [webapi_status, settings.AUTH_READONLY],
+        '/api/statistics': [webapi_statistics, settings.AUTH_READONLY],
+
+        '/api/runsql': [webapi_runsql, settings.AUTH_ADMIN],
+        '/api/cityset': [webapi_cityset, settings.AUTH_ADMIN],
+        '/api/redis': [webapi_redis, settings.AUTH_ADMIN],
     }
     if requests['path'] not in apimapping:
         if requests['useragent'].startswith('ELB-HealthChecker/2.0'):
@@ -477,7 +482,12 @@ def lambda_handler(event, context):
         else:
             ret = {'statusCode':404, 'result':'not found'}
     else:
-        ret = apimapping[requests['path']](requests)
+        print(requests)
+        route = apimapping[requests['path']]
+        if not data_layer.validate_user(route[1], requests):
+            ret = {'statusCode':403, 'result':'forbidden'}
+        else:
+            ret = route[0](requests)
     #ret['result']['debug'] = event;
     #ret['result']['requests'] = requests;
     if requests['version'] == 'apigw-httpapi2.0':

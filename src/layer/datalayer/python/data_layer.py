@@ -680,3 +680,6 @@ def np_percentile(sorted_data, p, accurate = False):
     # 如果p指向是两个元素之间，进行线性插值精确结果
     fraction = rank - index_floor
     return sorted_data[index_floor] * (1 - fraction) + sorted_data[index_ceil] * fraction
+
+def validate_user(auth:int, requests):
+    return True

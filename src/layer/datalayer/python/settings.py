@@ -40,3 +40,12 @@ if DB_SECRET != '':
 else:
     DB_USER = os.environ.get('DB_USER', '')
     DB_PASS = os.environ.get('DB_PASS', '')
+
+# 不需要授权
+AUTH_NOTNEED = 0
+# 普通用户
+AUTH_BASEUSER = 1
+# 系统维护用户，可查看系统状态信息，连接readonly数据库
+AUTH_READONLY = 2
+# 系统管理员
+AUTH_ADMIN = 4
