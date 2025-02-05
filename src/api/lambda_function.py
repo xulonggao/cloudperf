@@ -316,7 +316,7 @@ def fping_logic(requests):
             next = requests['query']['next']
         else:
             next = ''
-        print(f"receive {len(jobResult)} job")
+        # print(f"receive {len(jobResult)} job")
         for obj in jobResult:
             jobtype = obj['jobid'][:4]
             jobid = int(obj['jobid'][4:])
@@ -388,7 +388,7 @@ def fping_logic(requests):
                 })
             else:
                 break
-        print(f"fetch {len(ret['job'])} ping job")
+        # print(f"fetch {len(ret['job'])} ping job")
         if len(ret["job"]) > 0:
             ret["next"] = 'ping'
             ret["interval"] = 1
@@ -406,7 +406,7 @@ def fping_logic(requests):
                 })
             else:
                 break
-        print(f"fetch {len(ret['job'])} data job")
+        # print(f"fetch {len(ret['job'])} data job")
         if len(ret['job']) > 0:
             ret["next"] = "data"
             ret["interval"] = 1

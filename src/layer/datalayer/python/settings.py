@@ -49,6 +49,6 @@ AUTH_NOTNEED = 0
 # 普通用户
 AUTH_BASEUSER = 1
 # 系统维护用户，可查看系统状态信息，连接readonly数据库
-AUTH_READONLY = 2
+AUTH_READONLY = 1 | 2
 # 系统管理员
-AUTH_ADMIN = 4
+AUTH_ADMIN = 1 | 2 | 4

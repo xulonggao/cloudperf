@@ -434,5 +434,11 @@ export class CloudperfStack extends cdk.Stack {
       value: s3Bucket.bucketArn,
       description: 'data exchange'
     });
+
+    new cdk.CfnOutput(this, 'adminLambda', {
+      value: adminLambda.functionName,
+      description: 'admin Lambda'
+    });
+
   }
 }

@@ -121,7 +121,7 @@ def exec_sqlfile(sql_file):
 
 def create_user(username):
     password = secrets.choice(string.ascii_uppercase) + ''.join(secrets.choice(string.ascii_lowercase) for _ in range(3)) + ''.join(secrets.choice(string.digits) for _ in range(3)) + secrets.choice("!@#$%^&*")
-    print(f'general password for {username}: {password}')
+    print(f'generate password for {username}: {password}')
     ret = data_layer.create_user(username, password, settings.AUTH_ADMIN)
     print(ret)
     return ret

@@ -4,6 +4,7 @@ import redis
 import re
 import json
 import time
+import hashlib
 import settings
 import boto3
 from onlineip_tracker import OnlineIPTracker
@@ -30,6 +31,13 @@ redis_pool = redis.ConnectionPool(
     connection_class=redis.SSLConnection,
     socket_timeout=5,
     socket_connect_timeout=5)
+
+def myhash(text):
+    if not isinstance(text, str):
+        text = str(text)
+    text_bytes = text.encode('utf-8')
+    sha256_hash = hashlib.sha256(text_bytes)
+    return sha256_hash.hexdigest()[:32]
 
 def get_mysql_connect(need_write = False, need_multi = False, db = settings.DB_DATABASE):
     host = settings.DB_WRITE_HOST if need_write else settings.DB_READ_HOST
@@ -217,7 +225,7 @@ def cache_listlen(key:str):
         return 0
 
 def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE_TTL):
-    key = settings.CACHEKEY_SQL + 'ov_' + hash(sql)
+    key = settings.CACHEKEY_SQL + 'ov_' + myhash(sql)
     val = cache_get(key)
     if val != None:
         return val
@@ -226,11 +234,11 @@ def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE
     return ret
 
 def delete_mysql_select_cache(sql:str, obj = None, fetchObject = True):
-    key = settings.CACHEKEY_SQL + 'sl_' + hash(sql) + hash(obj) + hash(fetchObject)
+    key = settings.CACHEKEY_SQL + 'sl_' + myhash(sql + str(obj) + str(fetchObject))
     return cache_delete(key)
 
 def cache_mysql_select(sql:str, obj = None, fetchObject = True, ttl:int = settings.CACHE_BASE_TTL):
-    key = settings.CACHEKEY_SQL + 'sl_' + hash(sql) + hash(obj) + hash(fetchObject)
+    key = settings.CACHEKEY_SQL + 'sl_' + myhash(sql + str(obj) + str(fetchObject))
     val = cache_get(key)
     if val != None:
         return val
@@ -649,7 +657,7 @@ def get_pingjob_by_cityid(src_city_id:int):
                 last_city_id = ipdata['city_id']
             # 缓存最后一个 city_id，用于缓存取光后，继续下次的查询
             cache_push(settings.CACHEKEY_CITYJOB + str(src_city_id), last_city_id)
-            print(f'got {len(ipdatas)} cityids with {src_city_id} last_id {last_city_id}')
+            # print(f'got {len(ipdatas)} cityids with {src_city_id} last_id {last_city_id}')
     if return_city_id == 0:
         return None
     # 查找该city_id的可用ip列表
@@ -693,7 +701,7 @@ def validate_user_cookies(auth:int, cookies:str):
     start += 6
     end = cookies.find(";", start)
     token = cookies[start:] if end == -1 else cookies[start:end]
-    val = cache_get(settings.CACHEKEY_USERAUTH + hash(token))
+    val = cache_get(settings.CACHEKEY_USERAUTH + myhash(token))
     if val != None and (auth & val) == auth:
         return True
     return False
@@ -701,12 +709,12 @@ def validate_user_cookies(auth:int, cookies:str):
 def validate_user(user:str, password:str):
     if not user.isalnum():
         return None
-    ret = mysql_select('select password,auth from user where name=?',(user,))
+    ret = mysql_select('select password,auth from user where name=%s',(user,))
     if ret == None or len(ret) == 0:
         return None
-    if ret[0]['password'] == hash(hash(password)+user+'myuserencrpt'):
-        key = hash(str(time.time()) + user)
-        cache_set(settings.CACHEKEY_USERAUTH + hash(key), ret[0]['auth'], settings.CACHE_BASE_TTL)
+    if ret[0]['password'] == myhash(myhash(password)+user+'myuserencrpt'):
+        key = myhash(str(time.time()) + user)
+        cache_set(settings.CACHEKEY_USERAUTH + myhash(key), ret[0]['auth'], settings.CACHE_BASE_TTL)
         return key
     return None
 
@@ -724,7 +732,7 @@ def create_user(user:str, password:str, auth:int=settings.AUTH_BASEUSER):
             'status': 403,
             'msg': '; '.join(errors)
         }
-    password = hash(hash(password)+user+'myuserencrpt')
+    password = myhash(myhash(password)+user+'myuserencrpt')
     mysql_execute('INSERT INTO `user`(`name`,`password`,`auth`) VALUES(%s, %s, %s) ON DUPLICATE KEY UPDATE password=%s,auth=%s', (user, password, auth, password, auth))
     return {
         'status': 200,
