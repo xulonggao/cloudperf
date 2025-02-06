@@ -55,6 +55,8 @@ const StatCard = ({ title, value, icon: Icon }) => (
 );
 
 export default function Status() {
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [lastUpdateTime, setLastUpdateTime] = useState('');
     const [stats, setStats] = useState({
         allasn: 0,
         allcity: 0,
@@ -70,15 +72,18 @@ export default function Status() {
 
     useEffect(() => {
         const fetchStats = async () => {
+            setIsRefreshing(true);
             try {
                 const response = await fetch('/api/statistics');
                 if (response.ok) {
                     const data = await response.json();
                     setStats(data);
+                    setLastUpdateTime(new Date().toLocaleTimeString());
                 }
             } catch (error) {
                 console.error('Error fetching statistics:', error);
             }
+            setIsRefreshing(false);
         };
 
         // Initial fetch
@@ -94,9 +99,20 @@ export default function Status() {
     return (
         <Box>
             <Box sx={{ p: [0, 3, 0, 3] }}>
-                <Typography variant="h4" gutterBottom>
-                    System Status
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Typography variant="h4">
+                        System Status
+                    </Typography>
+                    {isRefreshing ? (
+                        <Typography sx={{ color: 'red' }}>
+                            refreshing...
+                        </Typography>
+                    ) : (
+                        <Typography>
+                            {lastUpdateTime}
+                        </Typography>
+                    )}
+                </Box>
                 <Grid container spacing={3} sx={{ mb: -3 }}>
                     <Grid item xs={12} sm={4} md={2}>
                         <StatCard

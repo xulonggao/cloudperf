@@ -14,7 +14,7 @@ import {
     TableRow
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -30,8 +30,10 @@ export default function IPSearch() {
     const [ip, setIp] = useState('');
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSearch = async () => {
+        setIsLoading(true);
         try {
             const data = await fetchIPInfo(ip);
             setResult(data);
@@ -39,6 +41,8 @@ export default function IPSearch() {
         } catch (err) {
             setError(err.message || 'An error occurred while fetching data');
             setResult(null);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -60,6 +64,7 @@ export default function IPSearch() {
                         variant="contained"
                         startIcon={<SearchIcon />}
                         onClick={handleSearch}
+                        disabled={isLoading}
                         sx={{ minWidth: 120 }}
                     >
                         Search
@@ -111,6 +116,7 @@ export default function IPSearch() {
                                 zoom={10}
                                 style={{ height: '100%', width: '100%' }}
                             >
+                                <MapUpdater position={[result.latitude, result.longitude]} />
                                 <TileLayer
                                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -128,4 +134,11 @@ export default function IPSearch() {
             </Paper>
         </Container>
     );
+}
+
+// Component to handle map updates
+function MapUpdater({ position }) {
+    const map = useMap();
+    map.setView(position, map.getZoom());
+    return null;
 }

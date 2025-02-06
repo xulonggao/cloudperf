@@ -61,7 +61,7 @@ class EnhancedPasswordValidator:
         
         # 验证无效字符
         if stats['invalid'] > 0:
-            errors.append("Password contains invalid characters")
+            errors.append(f"Password contains invalid characters, only accept letter number and special character({self.special_chars})")
         
         # 验证必需字符
         if self.require_uppercase and stats['uppercase'] == 0:

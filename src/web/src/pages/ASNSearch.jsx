@@ -46,9 +46,11 @@ export default function ASNSearch() {
     const [error, setError] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [setName, setSetName] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
 
     const handleSearch = async () => {
         try {
+            setIsSearching(true);
             setResults([]); // Clear previous results before new search
             const data = await fetchASNInfo(filter);
             setResults(data);
@@ -57,6 +59,8 @@ export default function ASNSearch() {
         } catch (err) {
             setError(err.message || 'An error occurred while fetching data');
             setResults([]);
+        } finally {
+            setIsSearching(false);
         }
     };
 
@@ -109,6 +113,7 @@ export default function ASNSearch() {
                         variant="contained"
                         startIcon={<SearchIcon />}
                         onClick={handleSearch}
+                        disabled={isSearching}
                         sx={{ minWidth: 120 }}
                     >
                         Search
@@ -144,7 +149,7 @@ export default function ASNSearch() {
                                         <TableCell>ASN</TableCell>
                                         <TableCell>Country</TableCell>
                                         <TableCell>Type</TableCell>
-                                        <TableCell>IP Range</TableCell>
+                                        <TableCell>IP Range(Partial)</TableCell>
                                         <TableCell>Location</TableCell>
                                     </TableRow>
                                 </TableHead>

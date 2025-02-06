@@ -323,9 +323,9 @@ export default function Layout() {
                                 });
 
                                 if (!response.ok) {
-                                    throw new Error('Failed to change password');
+                                    const error = await response.text();
+                                    throw new Error(error || `Failed to change password`);
                                 }
-
                                 setDialogOpen(false);
                                 setPassword('');
                                 setConfirmPassword('');

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Paper, TextField, Button, Typography, Grid, List, ListItem, ListItemText, IconButton } from '@mui/material';
+import { Box, Paper, TextField, Button, Typography, Grid, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import { executeSQL, getRedisValue, setRedisValue, deleteRedisKey } from '../services/api';
@@ -11,6 +11,9 @@ export default function Maintenance() {
     const [redisValue, setRedisVal] = useState('');
     const [redisKeys, setRedisKeys] = useState([]);
     const [editingKey, setEditingKey] = useState(null);
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [userRole, setUserRole] = useState('1');
 
     const handleSqlExecute = async () => {
         try {
@@ -37,6 +40,33 @@ export default function Maintenance() {
             setRedisKeys(redisKeys.filter(k => k.key !== key));
         } catch (error) {
             console.error('Error deleting Redis key:', error);
+        }
+    };
+
+    const handleUpdateUser = async () => {
+        try {
+            const response = await fetch('/api/updateuser', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username,
+                    password,
+                    role: parseInt(userRole)
+                })
+            });
+            if (response.ok) {
+                setUsername('');
+                setPassword('');
+                setUserRole('1');
+                alert('用户更新成功');
+            } else {
+                alert('更新失败: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error updating user:', error);
+            alert('更新失败');
         }
     };
 
@@ -242,6 +272,46 @@ export default function Maintenance() {
                                 </ListItem>
                             ))}
                         </List>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2 }}>
+                        <Typography variant="h6" gutterBottom>
+                            用户管理
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <TextField
+                                fullWidth
+                                label="用户名"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                            />
+                            <TextField
+                                fullWidth
+                                label="密码"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <FormControl fullWidth>
+                                <InputLabel>用户角色</InputLabel>
+                                <Select
+                                    value={userRole}
+                                    label="用户角色"
+                                    onChange={(e) => setUserRole(e.target.value)}
+                                >
+                                    <MenuItem value="1">基础用户 (AUTH_BASEUSER)</MenuItem>
+                                    <MenuItem value="3">系统巡检 (AUTH_READONLY)</MenuItem>
+                                    <MenuItem value="7">管理员 (AUTH_ADMIN)</MenuItem>
+                                </Select>
+                            </FormControl>
+                            <Button
+                                variant="contained"
+                                onClick={handleUpdateUser}
+                                sx={{ mt: 1 }}
+                            >
+                                保存
+                            </Button>
+                        </Box>
                     </Paper>
                 </Grid>
             </Grid>

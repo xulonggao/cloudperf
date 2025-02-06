@@ -161,11 +161,15 @@ def webapi_login(requests):
         'result': "username or password error!"
     }
 
-def webapi_changepasswd(request):
-    password = json.loads(requests['body'])
+def webapi_updateuser(requests):
+    obj = json.loads(requests['body'])
+    return data_layer.create_user(obj['username'], obj['password'], obj['role'])
+
+def webapi_changepasswd(requests):
+    obj = json.loads(requests['body'])
     userobj = data_layer.get_user_info_by_cookie(requests['cookie'])
     if userobj:
-        return data_layer.create_user(userobj['user'], password, userobj['auth'])
+        return data_layer.create_user(userobj['user'], obj['password'], userobj['auth'])
     return {
         'statusCode': 403,
         'result': "username or password error!"
@@ -223,10 +227,10 @@ def webapi_cityset(requests):
         ]
     elif requests['method'] == 'POST':
         data = json.loads(requests['body'])
-        ret = data_layer.add_cityset(data['name'], data['cityIds'])
+        ret = data_layer.add_cityset(data['name'], map(str, data['cityIds']))
     elif requests['method'] == 'PUT':
         data = json.loads(requests['body'])
-        ret = data_layer.edit_cityset(int(data['id']), data['name'], data['cityIds'])
+        ret = data_layer.edit_cityset(int(data['id']), data['name'], map(str, data['cityIds']))
     elif requests['method'] == 'DELETE':
         ret = data_layer.del_cityset(int(requests['query']['id']))
     return {
@@ -488,6 +492,7 @@ def lambda_handler(event, context):
         '/api/runsql': [webapi_runsql, settings.AUTH_ADMIN],
         '/api/cityset': [webapi_cityset, settings.AUTH_ADMIN],
         '/api/redis': [webapi_redis, settings.AUTH_ADMIN],
+        '/api/updateuser': [webapi_updateuser, settings.AUTH_ADMIN],
     }
     if requests['path'] not in apimapping:
         if requests['useragent'].startswith('ELB-HealthChecker/2.0'):

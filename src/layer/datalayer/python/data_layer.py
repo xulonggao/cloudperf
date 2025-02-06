@@ -299,12 +299,12 @@ def get_cityid_by_ip(ip:str):
 def get_cityobject_by_id(id:int):
     return get_cityobject("c.id=%s group by c.id",(id,),limit=1)
 
-def get_cityobject_by_keyword(keyword:str, limit=50):
+def get_cityobject_by_keyword(keyword:str, limit=200):
     if keyword.lower().startswith('as'):
         keyword = keyword.lower().replace('asn','').replace('as','')
 
     if keyword.isdecimal():
-        filter = f'a.asn={keyword}'
+        filter = f'a.asn={keyword} group by c.id '
         obj = None
     else:
         filter = """ CONCAT_WS('',c.name, c.friendly_name, c.region, a.name, a.domain) LIKE %s ESCAPE '\\\\' group by c.id """
@@ -696,8 +696,10 @@ def get_cookie(cookies:str, key:str):
     cookies = ' ' + cookies
     start = cookies.find(f" {key}=")
     if start == -1:
-        return False
-    start += 6
+        start = cookies.find(f";{key}=")
+        if start == -1:
+            return False
+    start += len(key) + 2
     end = cookies.find(";", start)
     return cookies[start:] if end == -1 else cookies[start:end]
 
@@ -743,6 +745,11 @@ def create_user(user:str, password:str, auth:int=settings.AUTH_BASEUSER):
         return {
             'statusCode': 403,
             'result': '; '.join(errors)
+        }
+    if auth not in [settings.AUTH_BASEUSER, settings.AUTH_READONLY, settings.AUTH_ADMIN]:
+        return {
+            'statusCode': 403,
+            'result': 'role error!'
         }
     password = myhash(myhash(password)+user+'myuserencrpt')
     mysql_execute('INSERT INTO `user`(`name`,`password`,`auth`) VALUES(%s, %s, %s) ON DUPLICATE KEY UPDATE password=%s,auth=%s', (user, password, auth, password, auth))
