@@ -3,7 +3,7 @@ class EnhancedPasswordValidator:
     """增强的密码验证器"""
     
     def __init__(self):
-        self.special_chars = ".,;'\"@#$%^!"
+        self.special_chars = ".,;@#$%^!"
         self.min_length = 8
         self.require_uppercase = True
         self.require_lowercase = True
@@ -16,7 +16,7 @@ class EnhancedPasswordValidator:
                         require_lowercase: bool = False,
                         require_digit: bool = False,
                         require_special: bool = False,
-                        special_chars = ".,;'\"@#$%^!"):
+                        special_chars = ".,;@#$%^!"):
         """设置密码要求"""
         self.min_length = min_length
         self.require_uppercase = require_uppercase
@@ -71,7 +71,7 @@ class EnhancedPasswordValidator:
         if self.require_digit and stats['digits'] == 0:
             errors.append("Password must contain at least one number")
         if self.require_special and stats['special'] == 0:
-            errors.append("Password must contain at least one special character(.,;'\"@#$%^!)")
+            errors.append(f"Password must contain at least one special character({self.special_chars})")
         
         return len(errors) == 0, errors, stats
 

@@ -690,21 +690,33 @@ def np_percentile(sorted_data, p, accurate = False):
     fraction = rank - index_floor
     return sorted_data[index_floor] * (1 - fraction) + sorted_data[index_ceil] * fraction
 
-def validate_user_cookies(auth:int, cookies:str):
-    if auth == settings.AUTH_NOTNEED:
-        return True
+def get_cookie(cookies:str, key:str):
     if cookies == '':
         return False
-    start = cookies.find("token=")
+    cookies = ' ' + cookies
+    start = cookies.find(f" {key}=")
     if start == -1:
         return False
     start += 6
     end = cookies.find(";", start)
-    token = cookies[start:] if end == -1 else cookies[start:end]
+    return cookies[start:] if end == -1 else cookies[start:end]
+
+def validate_user_cookies(auth:int, cookies:str):
+    if auth == settings.AUTH_NOTNEED:
+        return True
+    token = get_cookie(cookies, 'token')
+    if token == False:
+        return False
     val = cache_get(settings.CACHEKEY_USERAUTH + myhash(token))
-    if val != None and (auth & val) == auth:
+    if val != None and (auth & val["auth"]) == auth:
         return True
     return False
+
+def get_user_info_by_cookie(cookies:str):
+    token = get_cookie(cookies, 'token')
+    if token == False:
+        return None
+    return cache_get(settings.CACHEKEY_USERAUTH + myhash(token))
 
 def validate_user(user:str, password:str):
     if not user.isalnum():
@@ -714,7 +726,7 @@ def validate_user(user:str, password:str):
         return None
     if ret[0]['password'] == myhash(myhash(password)+user+'myuserencrpt'):
         key = myhash(str(time.time()) + user)
-        cache_set(settings.CACHEKEY_USERAUTH + myhash(key), ret[0]['auth'], settings.CACHE_BASE_TTL)
+        cache_set(settings.CACHEKEY_USERAUTH + myhash(key), {"user":user, "auth":ret[0]['auth']}, settings.CACHE_LONG_TTL)
         return key
     return None
 
@@ -722,19 +734,19 @@ def validate_user(user:str, password:str):
 def create_user(user:str, password:str, auth:int=settings.AUTH_BASEUSER):
     if not user.isalnum():
         return {
-            'status': 403,
-            'msg': 'username must only contain letter or number'
+            'statusCode': 403,
+            'result': 'username must only contain letter or number'
         }
     validator = EnhancedPasswordValidator()
     is_valid, errors, stats = validator.validate(password)
     if not is_valid:
         return {
-            'status': 403,
-            'msg': '; '.join(errors)
+            'statusCode': 403,
+            'result': '; '.join(errors)
         }
     password = myhash(myhash(password)+user+'myuserencrpt')
     mysql_execute('INSERT INTO `user`(`name`,`password`,`auth`) VALUES(%s, %s, %s) ON DUPLICATE KEY UPDATE password=%s,auth=%s', (user, password, auth, password, auth))
     return {
-        'status': 200,
-        'msg': 'success'
+        'statusCode': 200,
+        'result': 'success'
     }

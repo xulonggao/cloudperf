@@ -10,6 +10,12 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import TextField from '@mui/material/TextField';
+import Alert from '@mui/material/Alert';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ListItem from '@mui/material/ListItem';
@@ -82,14 +88,39 @@ const menuItems = [
 export default function Layout() {
     const [open, setOpen] = useState(true);
     const [status, setStatus] = useState(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [dialogError, setDialogError] = useState('');
+    const [username, setUsername] = useState('');
     const navigate = useNavigate();
     const location = useLocation();
 
     useEffect(() => {
-        // Check authentication
-        const token = document.cookie.split('; ').find(row => row.startsWith('token='));
-        if (!token && location.pathname !== '/login') {
+        // Get username from cookie
+        const userCookie = document.cookie.split('; ').find(row => row.startsWith('user='));
+        if (userCookie) {
+            setUsername(userCookie.split('=')[1]);
+        }
+
+        // Skip token check for login page
+        if (location.pathname === '/login') {
+            return;
+        }
+
+        // Check for token existence and validity
+        const tokenCookie = document.cookie.split('; ').find(row => row.startsWith('token='));
+        if (!tokenCookie) {
             navigate('/login');
+            return;
+        }
+
+        // Get token from cookie
+        const token = tokenCookie.split('=')[1];
+        if (!token) {
+            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+            navigate('/login');
+            return;
         }
 
         // Fetch status every 60 seconds
@@ -112,6 +143,7 @@ export default function Layout() {
 
     const handleLogout = () => {
         document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
         navigate('/login');
     };
 
@@ -166,8 +198,12 @@ export default function Layout() {
                         </Box>
                     )}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography variant="body2">
-                            admin
+                        <Typography
+                            variant="body2"
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => setDialogOpen(true)}
+                        >
+                            {username}
                         </Typography>
                         <Button
                             color="inherit"
@@ -236,6 +272,74 @@ export default function Layout() {
             >
                 <Outlet />
             </Box>
+            <Dialog open={dialogOpen} onClose={() => {
+                setDialogOpen(false);
+                setPassword('');
+                setDialogError('');
+            }}>
+                <DialogTitle>Change Password</DialogTitle>
+                <DialogContent>
+                    {dialogError && (
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                            {dialogError}
+                        </Alert>
+                    )}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                        <TextField
+                            autoFocus
+                            label="New Password"
+                            type="password"
+                            fullWidth
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                        <TextField
+                            label="Confirm Password"
+                            type="password"
+                            fullWidth
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            error={confirmPassword !== '' && password !== confirmPassword}
+                            helperText={confirmPassword !== '' && password !== confirmPassword ? "Passwords don't match" : ''}
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => {
+                        setDialogOpen(false);
+                        setPassword('');
+                        setConfirmPassword('');
+                        setDialogError('');
+                    }}>Cancel</Button>
+                    <Button
+                        onClick={async () => {
+                            try {
+                                const response = await fetch('/api/changepasswd', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ password }),
+                                });
+
+                                if (!response.ok) {
+                                    throw new Error('Failed to change password');
+                                }
+
+                                setDialogOpen(false);
+                                setPassword('');
+                                setConfirmPassword('');
+                                setDialogError('');
+                            } catch (error) {
+                                setDialogError(error.message);
+                            }
+                        }}
+                        disabled={!password || !confirmPassword || password !== confirmPassword}
+                    >
+                        Change Password
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

@@ -161,6 +161,16 @@ def webapi_login(requests):
         'result': "username or password error!"
     }
 
+def webapi_changepasswd(request):
+    password = json.loads(requests['body'])
+    userobj = data_layer.get_user_info_by_cookie(requests['cookie'])
+    if userobj:
+        return data_layer.create_user(userobj['user'], password, userobj['auth'])
+    return {
+        'statusCode': 403,
+        'result': "username or password error!"
+    }
+
 # country=US&city=US-NYC
 def webapi_asn(requests):
     cityset = 0
@@ -470,6 +480,7 @@ def lambda_handler(event, context):
         '/api/city': [webapi_city, settings.AUTH_BASEUSER],
         '/api/asn': [webapi_asn, settings.AUTH_BASEUSER],
         '/api/performance': [webapi_performance, settings.AUTH_BASEUSER],
+        '/api/changepasswd': [webapi_changepasswd, settings.AUTH_BASEUSER],
 
         #'/api/status': [webapi_status, settings.AUTH_READONLY],
         '/api/statistics': [webapi_statistics, settings.AUTH_READONLY],

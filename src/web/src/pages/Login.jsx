@@ -21,8 +21,11 @@ export default function Login() {
         e.preventDefault();
         try {
             const data = await login(username, password);
-            // Store token in cookie
-            document.cookie = `token=${data.token}; path=/`;
+            // Store token and username in cookies
+            const expirationDate = new Date();
+            expirationDate.setTime(expirationDate.getTime() + (86400 * 1000));
+            document.cookie = `token=${data.token}; path=/; expires=${expirationDate.toUTCString()}`;
+            document.cookie = `user=${username}; path=/; expires=${expirationDate.toUTCString()}`;
             navigate('/search');
         } catch (err) {
             setError(err.message || 'Invalid username or password');

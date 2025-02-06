@@ -43,8 +43,7 @@ npm install aws-cdk-lib@latest
 {"action": "exec_sql", "param": "select * from asn"}
 
 ```
-aws lambda invoke --function-name ${ADMIN_LAMBDA} --payload '{"action":"exec_sql","param":"select * from user"}' --region us-east-1 --cli-binary-format raw-in-base64-out --log-type Tail --output text --query 'LogResult' - | base64 -d
-
+aws lambda invoke --function-name ${ADMIN_LAMBDA} --payload '{"action":"exec_sql","param":"select * from user"}' --region us-east-1 --cli-binary-format raw-in-base64-out --log-type Tail --output text --query 'LogResult' /dev/stderr | base64 -d
 ```
 
 * 创建管理员账号
@@ -52,11 +51,13 @@ aws lambda invoke --function-name ${ADMIN_LAMBDA} --payload '{"action":"exec_sql
 ```bash
 ADMIN_LAMBDA=$(aws cloudformation describe-stacks --stack-name CloudperfStack --query 'Stacks[0].Outputs[?OutputKey==`adminLambda`].OutputValue' --output text --region us-east-1)
 # --query '{StatusCode: StatusCode, Payload: Payload, LogResult: LogResult}'
-aws lambda invoke --function-name ${ADMIN_LAMBDA} --payload '{"action":"create_user","param":"admin"}' --region us-east-1 --cli-binary-format raw-in-base64-out --log-type Tail --output text --query 'LogResult' - | base64 -d
+aws lambda invoke --function-name ${ADMIN_LAMBDA} --payload '{"action":"create_user","param":"admin"}' --region us-east-1 --cli-binary-format raw-in-base64-out --log-type Tail --output text --query 'LogResult' /dev/stderr | base64 -d
 # sample output is:
 process action: create_user param: admin
 general password for admin: xxxx
 ```
+
+也可以在Lambda控制台上，找到adminLambda，创建测试事件 {"action":"create_user","param":"admin"} 来创建admin账号，密码在输出中显示
 
 ## 扩展使用
 
