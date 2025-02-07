@@ -59,6 +59,17 @@ general password for admin: xxxx
 
 也可以在Lambda控制台上，找到adminLambda，创建测试事件 {"action":"create_user","param":"admin"} 来创建admin账号，密码在输出中显示
 
+* 安装客户端
+
+```bash
+# 部署可用ip探测的客户端，集中部署即可，部署多个节点可以加速刷新可用ip列表
+./src/deploy_detector.sh aws ap-southeast-1 fping-pingable
+# 部署探测节点，在需要监测网络质量的地方部署，如在aws的32个区域上部署
+./src/deploy_detector.sh aws us-east-1
+```
+
+部署客户端后，可以在网页 /status 页面上看到，由于aws region和城市名字不一样，状态页面看到的地区会和region不一样，可以自行进行修改。
+
 ## 扩展使用
 
 * 创建Lambda Layer
@@ -71,6 +82,20 @@ general password for admin: xxxx
 cd src/web && rm -rf lambda/app/public/* && npm run build -- --mode production && cd ../../
 cdk deploy
 ```
+
+* 编译调试客户端
+
+```bash
+dnf -y install glibc-static libstdc++-static git automake g++
+cd /usr/local/src;git clone https://github.com/tansoft/fping;cd fping;
+./autogen.sh;./configure --enable-centralmode='http://cloudperf.tansoft.org/job' --enable-debug
+make
+./src/fping
+```
+
+* 批量升级客户端
+
+参考 src/update_detector.sh
 
 ## 源码解释
 

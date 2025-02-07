@@ -135,7 +135,7 @@ export default function CitySet() {
                     <Table>
                         <TableHead>
                             <TableRow>
-                                <TableCell>Name</TableCell>
+                                <TableCell sx={{ width: '200px', minWidth: '200px' }}>Name</TableCell>
                                 <TableCell>City IDs</TableCell>
                                 {hasEditPermission && <TableCell align="right">Actions</TableCell>}
                             </TableRow>
@@ -143,7 +143,7 @@ export default function CitySet() {
                         <TableBody>
                             {citySets.map((set) => (
                                 <TableRow key={set.id}>
-                                    <TableCell>{set.name}</TableCell>
+                                    <TableCell sx={{ width: '200px', minWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{set.name}</TableCell>
                                     <TableCell>
                                         <Stack direction="row" spacing={1} flexWrap="wrap">
                                             {set.cityIds.map((cityId) => (
@@ -158,18 +158,20 @@ export default function CitySet() {
                                     </TableCell>
                                     {hasEditPermission && (
                                         <TableCell align="right">
-                                            <IconButton
-                                                color="primary"
-                                                onClick={() => handleOpenDialog(set)}
-                                            >
-                                                <EditIcon />
-                                            </IconButton>
-                                            <IconButton
-                                                color="error"
-                                                onClick={() => handleDelete(set.id)}
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
+                                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                <IconButton
+                                                    color="primary"
+                                                    onClick={() => handleOpenDialog(set)}
+                                                >
+                                                    <EditIcon />
+                                                </IconButton>
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() => handleDelete(set.id)}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </Stack>
                                         </TableCell>
                                     )}
                                 </TableRow>

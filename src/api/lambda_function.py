@@ -293,7 +293,7 @@ def webapi_ipinfo(requests):
 def webapi_asninfo(requests):
     if 'filter' not in requests['query']:
         return {'statusCode': 400, 'result':'need param filter.'}
-    filter = requests['query']['filter']
+    filter = unquote_plus(requests['query']['filter'])
     if len(filter) <= 2:
         return {'statusCode': 400, 'result':'The keyword length must be greater than 3.'}
     # (38661, 'KR', 'hosting', 405760, 'abcle', '', datetime.datetime(2025, 1, 4, 3, 47, 37))
@@ -359,8 +359,11 @@ def fping_logic(requests):
                 # 2.17.168.71 : 370 370 370 370 373 370 370 370 370 370 370
                 # 2.17.168.93 : 358 358 358 358 363 358 358 358 358 358 358
                 # 2.17.168.76 : 358 358 358 358 358 359 358 358 358 358 358
+                # 38.107.236.100 : duplicate for [0], 64 bytes, 34.4 ms
                 samples = []
                 for stderr in obj['stderr'].split('\n'):
+                    if stderr.find('duplicate') != -1:
+                        continue
                     for data in stderr.split(' '):
                         try:
                             samples.append(float(data))
