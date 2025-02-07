@@ -28,7 +28,11 @@ export default function Maintenance() {
     const handleRedisSearch = async () => {
         try {
             const data = await getRedisValue(redisKey);
-            setRedisKeys(Array.isArray(data) ? data : [{ key: redisKey, value: data }]);
+            // If data is an array, it's a list of keys. Otherwise, it's a single key's data
+            setRedisKeys(Array.isArray(data)
+                ? data.map(key => ({ key, value: key }))
+                : [{ key: redisKey, value: data }]
+            );
         } catch (error) {
             console.error('Error searching Redis:', error);
         }
@@ -73,9 +77,11 @@ export default function Maintenance() {
     const handleRedisEdit = async (key) => {
         if (editingKey === key) {
             try {
-                await setRedisValue(key, redisValue);
+                // For string type, JSON encode the value before saving
+                await setRedisValue(key, JSON.stringify(redisValue));
+                const data = await getRedisValue(key);
                 setRedisKeys(redisKeys.map(k =>
-                    k.key === key ? { ...k, value: redisValue } : k
+                    k.key === key ? { ...k, value: data } : k
                 ));
                 setEditingKey(null);
             } catch (error) {
@@ -83,7 +89,14 @@ export default function Maintenance() {
             }
         } else {
             setEditingKey(key);
-            setRedisVal(redisKeys.find(k => k.key === key)?.value || '');
+            const currentValue = redisKeys.find(k => k.key === key)?.value;
+            // For string type, JSON decode the value for editing
+            try {
+                setRedisVal(JSON.parse(currentValue.value));
+            } catch (error) {
+                // If parsing fails, use the raw value
+                setRedisVal(currentValue.value);
+            }
         }
     };
 
@@ -208,21 +221,25 @@ export default function Maintenance() {
                                     key={item.key}
                                     secondaryAction={
                                         <>
-                                            <IconButton
-                                                edge="end"
-                                                aria-label="edit"
-                                                onClick={() => handleRedisEdit(item.key)}
-                                                sx={{ mr: 1 }}
-                                            >
-                                                <EditIcon />
-                                            </IconButton>
-                                            <IconButton
-                                                edge="end"
-                                                aria-label="delete"
-                                                onClick={() => handleRedisDelete(item.key)}
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
+                                            {item.value.type == 'string' && (
+                                                <IconButton
+                                                    edge="end"
+                                                    aria-label="edit"
+                                                    onClick={() => handleRedisEdit(item.key)}
+                                                    sx={{ mr: 1 }}
+                                                >
+                                                    <EditIcon />
+                                                </IconButton>
+                                            )}
+                                            {item.value.type != 'none' && (
+                                                <IconButton
+                                                    edge="end"
+                                                    aria-label="delete"
+                                                    onClick={() => handleRedisDelete(item.key)}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            )}
                                         </>
                                     }
                                 >
@@ -265,7 +282,24 @@ export default function Maintenance() {
                                                     </Button>
                                                 </Box>
                                             ) : (
-                                                item.value
+                                                <Box>
+                                                    {item.value.type && (
+                                                        <Typography variant="caption" display="block">
+                                                            Type: {item.value.type} | Exists: {item.value.exists} | TTL: {item.value.ttl} | Length: {item.value.length}
+                                                        </Typography>
+                                                    )}
+                                                    <Typography variant="body2">
+                                                        {item.value.value ? (
+                                                            Array.isArray(item.value.value)
+                                                                ? item.value.value.map((v, i) => (
+                                                                    <span key={i}>{v}<br /></span>
+                                                                ))
+                                                                : item.value.value
+                                                        ) : (
+                                                            JSON.stringify(item.value, null, 2)
+                                                        )}
+                                                    </Typography>
+                                                </Box>
                                             )
                                         }
                                     />

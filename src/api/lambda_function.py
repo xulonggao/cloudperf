@@ -152,9 +152,7 @@ def webapi_login(requests):
         if ret != None:
             return {
                 'statusCode': 200,
-                'result': {
-                    "token": ret
-                }
+                'result': ret
             }
     return {
         'statusCode': 403,
@@ -225,7 +223,9 @@ def webapi_cityset(requests):
             {**item, 'cityIds': item['cityIds'].split(',') if item.get('cityIds') else []}
             for item in ret
         ]
-    elif requests['method'] == 'POST':
+    elif not data_layer.validate_user_cookies(settings.AUTH_ADMIN, requests['cookie']):
+        return {'statusCode':403, 'result':'forbidden'}
+    if requests['method'] == 'POST':
         data = json.loads(requests['body'])
         ret = data_layer.add_cityset(data['name'], map(str, data['cityIds']))
     elif requests['method'] == 'PUT':
@@ -259,7 +259,7 @@ def webapi_redis(requests):
         }
     elif requests['method'] == 'GET':
         if 'key' in requests['query']:
-            value = data_layer.cache_get(requests['query']['key'])
+            value = data_layer.cache_dump(requests['query']['key'])
             return {
                 'statusCode': 200,
                 'result': value
@@ -480,6 +480,7 @@ def lambda_handler(event, context):
 
         '/api/ipinfo': [webapi_ipinfo, settings.AUTH_BASEUSER],
         '/api/asninfo': [webapi_asninfo, settings.AUTH_BASEUSER],
+        '/api/cityset': [webapi_cityset, settings.AUTH_BASEUSER],
         '/api/country': [webapi_country, settings.AUTH_BASEUSER],
         '/api/city': [webapi_city, settings.AUTH_BASEUSER],
         '/api/asn': [webapi_asn, settings.AUTH_BASEUSER],
@@ -490,7 +491,6 @@ def lambda_handler(event, context):
         '/api/statistics': [webapi_statistics, settings.AUTH_READONLY],
 
         '/api/runsql': [webapi_runsql, settings.AUTH_ADMIN],
-        '/api/cityset': [webapi_cityset, settings.AUTH_ADMIN],
         '/api/redis': [webapi_redis, settings.AUTH_ADMIN],
         '/api/updateuser': [webapi_updateuser, settings.AUTH_ADMIN],
     }

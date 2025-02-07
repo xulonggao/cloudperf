@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fetchCitySets, createCitySet, updateCitySet, deleteCitySet } from '../services/api';
 import {
     Box,
@@ -32,6 +32,15 @@ export default function CitySet() {
     const [setName, setSetName] = useState('');
     const [cityIds, setCityIds] = useState('');
     const [error, setError] = useState('');
+
+    const hasEditPermission = useMemo(() => {
+        const authCookie = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('auth='));
+        if (!authCookie) return false;
+        const authValue = parseInt(authCookie.split('=')[1], 10);
+        return (authValue & 4) == 4;
+    }, []);
 
     const loadCitySets = async () => {
         try {
@@ -105,13 +114,15 @@ export default function CitySet() {
                     <Typography variant="h6">
                         City Sets
                     </Typography>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleOpenDialog()}
-                    >
-                        Add New Set
-                    </Button>
+                    {hasEditPermission && (
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => handleOpenDialog()}
+                        >
+                            Add New Set
+                        </Button>
+                    )}
                 </Box>
 
                 {error && (
@@ -126,7 +137,7 @@ export default function CitySet() {
                             <TableRow>
                                 <TableCell>Name</TableCell>
                                 <TableCell>City IDs</TableCell>
-                                <TableCell align="right">Actions</TableCell>
+                                {hasEditPermission && <TableCell align="right">Actions</TableCell>}
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -145,20 +156,22 @@ export default function CitySet() {
                                             ))}
                                         </Stack>
                                     </TableCell>
-                                    <TableCell align="right">
-                                        <IconButton
-                                            color="primary"
-                                            onClick={() => handleOpenDialog(set)}
-                                        >
-                                            <EditIcon />
-                                        </IconButton>
-                                        <IconButton
-                                            color="error"
-                                            onClick={() => handleDelete(set.id)}
-                                        >
-                                            <DeleteIcon />
-                                        </IconButton>
-                                    </TableCell>
+                                    {hasEditPermission && (
+                                        <TableCell align="right">
+                                            <IconButton
+                                                color="primary"
+                                                onClick={() => handleOpenDialog(set)}
+                                            >
+                                                <EditIcon />
+                                            </IconButton>
+                                            <IconButton
+                                                color="error"
+                                                onClick={() => handleDelete(set.id)}
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             ))}
                         </TableBody>

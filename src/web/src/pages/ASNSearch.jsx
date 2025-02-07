@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { fetchASNInfo, createCitySet } from '../services/api';
 import {
     Box,
@@ -47,6 +47,13 @@ export default function ASNSearch() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [setName, setSetName] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+
+    const hasPermission = useMemo(() => {
+        const cookies = document.cookie.split(';');
+        const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth='));
+        const auth = parseInt(authCookie ? authCookie.split('=')[1] : '0');
+        return (auth & 4) == 4;
+    }, []);
 
     const handleSearch = async () => {
         try {
@@ -107,6 +114,11 @@ export default function ASNSearch() {
                         label="Search ASNs"
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !isSearching) {
+                                handleSearch();
+                            }
+                        }}
                         placeholder="e.g. Amazon or ASN8987"
                     />
                     <Button
@@ -116,7 +128,7 @@ export default function ASNSearch() {
                         disabled={isSearching}
                         sx={{ minWidth: 120 }}
                     >
-                        Search
+                        {isSearching ? 'Searching...' : 'Search'}
                     </Button>
                 </Box>
 
@@ -128,63 +140,6 @@ export default function ASNSearch() {
 
                 {results.length > 0 && (
                     <>
-                        <TableContainer>
-                            <Table>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell padding="checkbox">
-                                            <Checkbox
-                                                indeterminate={selected.length > 0 && selected.length < results.length}
-                                                checked={results.length > 0 && selected.length === results.length}
-                                                onChange={() => {
-                                                    if (selected.length === results.length) {
-                                                        setSelected([]);
-                                                    } else {
-                                                        setSelected(results.map(r => r.cityId));
-                                                    }
-                                                }}
-                                            />
-                                        </TableCell>
-                                        <TableCell>City ID</TableCell>
-                                        <TableCell>ASN</TableCell>
-                                        <TableCell>Country</TableCell>
-                                        <TableCell>Type</TableCell>
-                                        <TableCell>IP Range(Partial)</TableCell>
-                                        <TableCell>Location</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {results.map((result) => (
-                                        <TableRow key={result.cityId}>
-                                            <TableCell padding="checkbox">
-                                                <Checkbox
-                                                    checked={selected.includes(result.cityId)}
-                                                    onChange={() => handleToggleSelect(result.cityId)}
-                                                />
-                                            </TableCell>
-                                            <TableCell>{result.cityId} - {result.name}</TableCell>
-                                            <TableCell>AS{result.asn} - {result.asnName}</TableCell>
-                                            <TableCell>{result.country} - {result.region}</TableCell>
-                                            <TableCell>{result.asnType} - {result.domain}</TableCell>
-                                            <TableCell>{`${result.startIp}, ${result.endIp}`}</TableCell>
-                                            <TableCell>{`${result.latitude}, ${result.longitude}`}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-
-                        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button
-                                variant="contained"
-                                startIcon={<SaveIcon />}
-                                onClick={() => setDialogOpen(true)}
-                                disabled={selected.length === 0}
-                            >
-                                Save as Set
-                            </Button>
-                        </Box>
-
                         <Box sx={{ mt: 3, height: 400 }}>
                             <MapContainer
                                 bounds={getBounds()}
@@ -207,6 +162,69 @@ export default function ASNSearch() {
                                 ))}
                             </MapContainer>
                         </Box>
+
+                        {hasPermission && (
+                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<SaveIcon />}
+                                    onClick={() => setDialogOpen(true)}
+                                    disabled={selected.length === 0}
+                                >
+                                    Save as Set
+                                </Button>
+                            </Box>
+                        )}
+
+                        <TableContainer>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        {hasPermission && (
+                                            <TableCell padding="checkbox">
+                                                <Checkbox
+                                                    indeterminate={selected.length > 0 && selected.length < results.length}
+                                                    checked={results.length > 0 && selected.length === results.length}
+                                                    onChange={() => {
+                                                        if (selected.length === results.length) {
+                                                            setSelected([]);
+                                                        } else {
+                                                            setSelected(results.map(r => r.cityId));
+                                                        }
+                                                    }}
+                                                />
+                                            </TableCell>
+                                        )}
+                                        <TableCell>City ID</TableCell>
+                                        <TableCell>ASN</TableCell>
+                                        <TableCell>Country</TableCell>
+                                        <TableCell>Type</TableCell>
+                                        <TableCell>IP Range(Partial)</TableCell>
+                                        <TableCell>Location</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {results.map((result) => (
+                                        <TableRow key={result.cityId}>
+                                            {hasPermission && (
+                                                <TableCell padding="checkbox">
+                                                    <Checkbox
+                                                        checked={selected.includes(result.cityId)}
+                                                        onChange={() => handleToggleSelect(result.cityId)}
+                                                    />
+                                                </TableCell>
+                                            )}
+                                            <TableCell>{result.cityId} - {result.name}</TableCell>
+                                            <TableCell>AS{result.asn} - {result.asnName}</TableCell>
+                                            <TableCell>{result.country} - {result.region}</TableCell>
+                                            <TableCell>{result.asnType} - {result.domain}</TableCell>
+                                            <TableCell>{`${result.startIp}, ${result.endIp}`}</TableCell>
+                                            <TableCell>{`${result.latitude}, ${result.longitude}`}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
                     </>
                 )}
             </Paper>

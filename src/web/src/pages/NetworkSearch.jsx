@@ -90,11 +90,13 @@ export default function NetworkSearch() {
     const [destAsns, setDestAsns] = useState([]);
     const [selectedDestAsns, setSelectedDestAsns] = useState([]);
 
-    // State for performance data
+    // State for performance data and loading
     const [performanceData, setPerformanceData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         // Fetch city sets and countries on mount
+        setIsLoading(true);
         const fetchInitialData = async () => {
             try {
                 const [setsData, countriesData] = await Promise.all([
@@ -109,11 +111,13 @@ export default function NetworkSearch() {
             }
         };
         fetchInitialData();
+        setIsLoading(false);
     }, []);
 
     useEffect(() => {
         // Fetch countries when city sets is selected
         setSelectedDestCountry('');
+        setIsLoading(true);
         if (selectedSet) {
             setDestCountries([]);
             fetchCountries(selectedSet)
@@ -122,67 +126,76 @@ export default function NetworkSearch() {
         } else {
             setDestCountries(countries);
         }
+        setIsLoading(false);
     }, [selectedSet]);
 
     // Fetch cities when country is selected
     useEffect(() => {
         setSelectedCity('');
         setCities([]);
+        setIsLoading(true);
         if (selectedCountry) {
             fetchCities(selectedCountry)
                 .then(data => setCities(data))
                 .catch(error => console.error('Error fetching cities:', error));
         }
+        setIsLoading(false);
     }, [selectedCountry]);
 
     // Fetch ASNs when city is selected
     useEffect(() => {
         setSelectedAsns([]);
         setAsns([]);
+        setIsLoading(true);
         if (selectedCountry && selectedCity) {
             fetchAsns(selectedCountry, selectedCity)
                 .then(data => setAsns(data))
                 .catch(error => console.error('Error fetching ASNs:', error));
         }
+        setIsLoading(false);
     }, [selectedCountry, selectedCity]);
 
     // Similar effects for destination selection
     useEffect(() => {
         setSelectedDestCity('');
         setDestCities([]);
+        setIsLoading(true);
         if (selectedDestCountry) {
             fetchCities(selectedDestCountry, selectedSet)
                 .then(data => setDestCities(data))
                 .catch(error => console.error('Error fetching destination cities:', error));
         }
+        setIsLoading(false);
     }, [selectedDestCountry]);
 
     useEffect(() => {
         setSelectedDestAsns([]);
         setDestAsns([]);
+        setIsLoading(true);
         if (selectedDestCountry && selectedDestCity) {
             fetchAsns(selectedDestCountry, selectedDestCity, selectedSet)
                 .then(data => setDestAsns(data))
                 .catch(error => console.error('Error fetching destination ASNs:', error));
         }
+        setIsLoading(false);
     }, [selectedDestCountry, selectedDestCity]);
 
     const handleSearch = async () => {
-        // Clear existing performance data first
+        // Clear existing performance data first and set loading state
         setPerformanceData(null);
-
+        setIsLoading(true);
         const srcCityIds = selectedSet
             ? citySets.find(set => set.id === selectedSet)?.cityIds
             : (selectedAsns.length ? selectedAsns.map(asn => asn.cityId) : asns.map(asn => asn.cityId));
-
         const destCityIds = selectedDestAsns.length ? selectedDestAsns.map(asn => asn.cityId)
             : destAsns.map(asn => asn.cityId);
-
         try {
             const data = await fetchPerformanceData(srcCityIds, destCityIds);
             setPerformanceData(data);
         } catch (error) {
             console.error('Error fetching performance data:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -313,11 +326,12 @@ export default function NetworkSearch() {
                             variant="contained"
                             onClick={handleSearch}
                             disabled={
+                                isLoading ||
                                 !((selectedSet || (selectedCity.length && asns.length)) &&
                                     (selectedDestCity.length && destAsns.length))
                             }
                         >
-                            Search
+                            {isLoading ? 'Loading...' : 'Search'}
                         </Button>
                     </Box>
                 </Grid>

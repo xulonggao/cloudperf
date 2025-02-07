@@ -88,6 +88,7 @@ const menuItems = [
 export default function Layout() {
     const [open, setOpen] = useState(true);
     const [status, setStatus] = useState(null);
+    const [authLevel, setAuthLevel] = useState(0);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -97,10 +98,16 @@ export default function Layout() {
     const location = useLocation();
 
     useEffect(() => {
-        // Get username from cookie
+        // Get username and auth from cookies
         const userCookie = document.cookie.split('; ').find(row => row.startsWith('user='));
+        const authCookie = document.cookie.split('; ').find(row => row.startsWith('auth='));
+
         if (userCookie) {
             setUsername(userCookie.split('=')[1]);
+        }
+
+        if (authCookie) {
+            setAuthLevel(parseInt(authCookie.split('=')[1]) || 0);
         }
 
         // Skip token check for login page
@@ -144,6 +151,7 @@ export default function Layout() {
     const handleLogout = () => {
         document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
         document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
         navigate('/login');
     };
 
@@ -199,7 +207,6 @@ export default function Layout() {
                     )}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Typography
-                            variant="body2"
                             sx={{ cursor: 'pointer' }}
                             onClick={() => setDialogOpen(true)}
                         >
@@ -230,31 +237,45 @@ export default function Layout() {
                 </Toolbar>
                 <Divider />
                 <List component="nav">
-                    {menuItems.map((item) => (
-                        <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
-                            <ListItemButton
-                                component={Link}
-                                to={item.path}
-                                selected={location.pathname === item.path}
-                                sx={{
-                                    minHeight: 48,
-                                    justifyContent: open ? 'initial' : 'center',
-                                    px: 2.5,
-                                }}
-                            >
-                                <ListItemIcon
+                    {menuItems.map((item) => {
+                        // Filter menu items based on auth level
+                        const isBaseUserMenu = item.path === '/ipsearch' || item.path === '/asnsearch' || item.path === '/search';
+                        const isReadonlyMenu = item.path === '/status' || item.path === '/cityset';
+                        const isOtherMenu = !isBaseUserMenu && !isReadonlyMenu;
+
+                        const shouldShow =
+                            (isBaseUserMenu && (authLevel & 1)) ||
+                            (isReadonlyMenu && (authLevel & 2)) ||
+                            (isOtherMenu && (authLevel & 4));
+
+                        if (!shouldShow) return null;
+
+                        return (
+                            <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
+                                <ListItemButton
+                                    component={Link}
+                                    to={item.path}
+                                    selected={location.pathname === item.path}
                                     sx={{
-                                        minWidth: 0,
-                                        mr: open ? 3 : 'auto',
-                                        justifyContent: 'center',
+                                        minHeight: 48,
+                                        justifyContent: open ? 'initial' : 'center',
+                                        px: 2.5,
                                     }}
                                 >
-                                    {item.icon}
-                                </ListItemIcon>
-                                <ListItemText primary={item.text} sx={{ opacity: open ? 1 : 0 }} />
-                            </ListItemButton>
-                        </ListItem>
-                    ))}
+                                    <ListItemIcon
+                                        sx={{
+                                            minWidth: 0,
+                                            mr: open ? 3 : 'auto',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        {item.icon}
+                                    </ListItemIcon>
+                                    <ListItemText primary={item.text} sx={{ opacity: open ? 1 : 0 }} />
+                                </ListItemButton>
+                            </ListItem>
+                        )
+                    })}
                 </List>
             </Drawer>
             <Box

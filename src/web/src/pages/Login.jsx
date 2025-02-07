@@ -23,9 +23,10 @@ export default function Login() {
             const data = await login(username, password);
             // Store token and username in cookies
             const expirationDate = new Date();
-            expirationDate.setTime(expirationDate.getTime() + (86400 * 1000));
+            expirationDate.setTime(expirationDate.getTime() + (`${data.expire}` * 1000));
             document.cookie = `token=${data.token}; path=/; expires=${expirationDate.toUTCString()}`;
-            document.cookie = `user=${username}; path=/; expires=${expirationDate.toUTCString()}`;
+            document.cookie = `user=${data.user}; path=/; expires=${expirationDate.toUTCString()}`;
+            document.cookie = `auth=${data.auth}; path=/; expires=${expirationDate.toUTCString()}`;
             navigate('/search');
         } catch (err) {
             setError(err.message || 'Invalid username or password');

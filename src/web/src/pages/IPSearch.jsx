@@ -58,6 +58,11 @@ export default function IPSearch() {
                         label="Enter IP Address"
                         value={ip}
                         onChange={(e) => setIp(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !isLoading) {
+                                handleSearch();
+                            }
+                        }}
                         placeholder="e.g. 108.175.48.2"
                     />
                     <Button
@@ -67,7 +72,7 @@ export default function IPSearch() {
                         disabled={isLoading}
                         sx={{ minWidth: 120 }}
                     >
-                        Search
+                        {isLoading ? 'Searching...' : 'Search'}
                     </Button>
                 </Box>
 

@@ -224,6 +224,34 @@ def cache_listlen(key:str):
         print('cache list len failed.', repr(e), key)
         return 0
 
+def cache_dump(key:str):
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        key_type = r.type(key)
+        details = {
+            'type': key_type,
+            'exists': r.exists(key),
+            'ttl': r.ttl(key)
+        }
+        if key_type == 'string':
+            details['value'] = r.get(key)
+        elif key_type == 'list':
+            details['length'] = r.llen(key)
+            details['value'] = r.lrange(key, 0, -1)
+        elif key_type == 'set':
+            details['length'] = r.scard(key)
+            details['value'] = r.smembers(key)
+        elif key_type == 'hash':
+            details['length'] = r.hlen(key)
+            details['value'] = r.hgetall(key)
+        elif key_type == 'zset':
+            details['length'] = r.zcard(key)
+            details['value'] = r.zrange(key, 0, -1, withscores=True)
+        return details
+    except Exception as e:
+        print('cache dump failed.', repr(e), key)
+        return None
+
 def cache_mysql_get_onevalue(sql:str, default = 0, ttl:int = settings.CACHE_BASE_TTL):
     key = settings.CACHEKEY_SQL + 'ov_' + myhash(sql)
     val = cache_get(key)
@@ -729,7 +757,12 @@ def validate_user(user:str, password:str):
     if ret[0]['password'] == myhash(myhash(password)+user+'myuserencrpt'):
         key = myhash(str(time.time()) + user)
         cache_set(settings.CACHEKEY_USERAUTH + myhash(key), {"user":user, "auth":ret[0]['auth']}, settings.CACHE_LONG_TTL)
-        return key
+        return {
+            "token": key,
+            "user": user,
+            "auth": ret[0]['auth'],
+            "expire": settings.CACHE_LONG_TTL
+        }
     return None
 
 # is_valid, errors, stats = create_user()
