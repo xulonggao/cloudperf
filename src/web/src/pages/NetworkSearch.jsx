@@ -67,6 +67,9 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 export default function NetworkSearch() {
+    // State for latency metric selection
+    const [selectedMetric, setSelectedMetric] = useState('p70');
+
     // State for source selection
     const [citySets, setCitySets] = useState([]);
     const [selectedSet, setSelectedSet] = useState('');
@@ -203,8 +206,8 @@ export default function NetworkSearch() {
     const getBounds = () => {
         if (!performanceData) return [[0, 0], [0, 0]];
         const points = [
-            ...performanceData.latencyData.map(data => [data.srcLat, data.srcLon]),
-            ...performanceData.latencyData.map(data => [data.destLat, data.destLon])
+            ...performanceData.latencyData.map(data => [data.sLa, data.sLo]),
+            ...performanceData.latencyData.map(data => [data.dLa, data.dLo])
         ];
         if (points.length === 0) return [[0, 0], [0, 0]];
         const lats = points.map(p => p[0]);
@@ -431,25 +434,44 @@ export default function NetworkSearch() {
                         {/* Latency vs Distance Scatter Chart */}
                         <Grid item xs={12}>
                             <Paper sx={{ p: 2 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    Latency vs Distance
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                                        Latency vs Distance
+                                    </Typography>
+                                    <FormControl sx={{ minWidth: 120 }}>
+                                        <InputLabel>Metric</InputLabel>
+                                        <Select
+                                            value={selectedMetric}
+                                            onChange={(e) => setSelectedMetric(e.target.value)}
+                                            label="Metric"
+                                            size="small"
+                                        >
+                                            <MenuItem value="min">Min</MenuItem>
+                                            <MenuItem value="avg">Avg</MenuItem>
+                                            <MenuItem value="max">Max</MenuItem>
+                                            <MenuItem value="p50">P50</MenuItem>
+                                            <MenuItem value="p70">P70</MenuItem>
+                                            <MenuItem value="p90">P90</MenuItem>
+                                            <MenuItem value="p95">P95</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
                                 <ResponsiveContainer width="100%" height={400}>
                                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid />
                                         <XAxis
                                             type="number"
-                                            dataKey="distance"
+                                            dataKey="dist"
                                             name="Distance"
                                             unit=" km"
                                             label={{ value: 'Distance (km)', position: 'bottom' }}
                                         />
                                         <YAxis
                                             type="number"
-                                            dataKey="latency"
-                                            name="Latency"
+                                            dataKey={selectedMetric}
+                                            name={`${selectedMetric.toUpperCase()} Latency`}
                                             unit=" ms"
-                                            label={{ value: 'Latency (ms)', angle: -90, position: 'left' }}
+                                            label={{ value: `${selectedMetric.toUpperCase()} Latency (ms)`, angle: -90, position: 'left' }}
                                         />
                                         <Tooltip
                                             cursor={{ strokeDasharray: '3 3' }}
@@ -463,10 +485,11 @@ export default function NetworkSearch() {
                                                     const data = payload[0].payload;
                                                     return (
                                                         <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
-                                                            <p>{`Source: ${data.srcCity} ${data.srcAsn}`}</p>
-                                                            <p>{`Destination: ${data.destCity} ${data.destAsn}`}</p>
-                                                            <p>{`Distance: ${Math.round(data.distance)} km`}</p>
-                                                            <p>{`Latency: ${data.latency} ms`}</p>
+                                                            <p>{`Source: ${data.sC} ${data.sA}`}</p>
+                                                            <p>{`Destination: ${data.dC} ${data.dA}`}</p>
+                                                            <p>{`Distance: ${Math.round(data.dist)} km\u00A0\u00A0${selectedMetric.toUpperCase()}: ${data[selectedMetric]}ms`}</p>
+                                                            <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
+                                                            <p>{`p50/p70/p90/p95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
                                                         </div>
                                                     );
                                                 }
@@ -486,15 +509,15 @@ export default function NetworkSearch() {
                                             iconSize={10}
                                             iconType="circle"
                                         />
-                                        {Array.from(new Set(performanceData.latencyData.map(d => d.srcCity))).map((srcCity, index) => (
+                                        {Array.from(new Set(performanceData.latencyData.map(d => d.sC))).map((sC, index) => (
                                             <Scatter
-                                                key={srcCity}
-                                                name={srcCity}
+                                                key={sC}
+                                                name={sC}
                                                 data={performanceData.latencyData
-                                                    .filter(d => d.srcCity === srcCity)
+                                                    .filter(d => d.sC === sC)
                                                     .map(d => ({
                                                         ...d,
-                                                        distance: calculateDistance(d.srcLat, d.srcLon, d.destLat, d.destLon)
+                                                        dist: calculateDistance(d.sLa, d.sLo, d.dLa, d.dLo)
                                                     }))}
                                                 fill={`hsl(${(index * 360) / 20}, 70%, 50%)`}
                                             />
@@ -504,17 +527,36 @@ export default function NetworkSearch() {
                             </Paper>
                         </Grid>
 
-                        {/* Time vs P70 Latency Scatter Chart */}
+                        {/* Time vs Latency Scatter Chart */}
                         <Grid item xs={12}>
                             <Paper sx={{ p: 2 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    Time vs P70 Latency
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                                        Latency Data Collection Time
+                                    </Typography>
+                                    <FormControl sx={{ minWidth: 120 }}>
+                                        <InputLabel>Metric</InputLabel>
+                                        <Select
+                                            value={selectedMetric}
+                                            onChange={(e) => setSelectedMetric(e.target.value)}
+                                            label="Metric"
+                                            size="small"
+                                        >
+                                            <MenuItem value="min">Min</MenuItem>
+                                            <MenuItem value="avg">Avg</MenuItem>
+                                            <MenuItem value="max">Max</MenuItem>
+                                            <MenuItem value="p50">P50</MenuItem>
+                                            <MenuItem value="p70">P70</MenuItem>
+                                            <MenuItem value="p90">P90</MenuItem>
+                                            <MenuItem value="p95">P95</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
                                 <ResponsiveContainer width="100%" height={300}>
                                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis
-                                            dataKey="time"
+                                            dataKey="ti"
                                             type="number"
                                             name="time"
                                             domain={['dataMin', 'dataMax']}
@@ -530,10 +572,10 @@ export default function NetworkSearch() {
                                             scale="time"
                                         />
                                         <YAxis
-                                            dataKey="p70"
-                                            name="P70 Latency"
+                                            dataKey={selectedMetric}
+                                            name={`${selectedMetric.toUpperCase()} Latency`}
                                             unit=" ms"
-                                            label={{ value: 'P70 Latency (ms)', angle: -90, position: 'left' }}
+                                            label={{ value: `${selectedMetric.toUpperCase()} Latency (ms)`, angle: -90, position: 'left' }}
                                         />
                                         <Tooltip
                                             cursor={{ strokeDasharray: '3 3' }}
@@ -542,16 +584,15 @@ export default function NetworkSearch() {
                                                     const data = payload[0].payload;
                                                     return (
                                                         <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
-                                                            <p>{`Time: ${new Date(parseInt(data.time) * 1000).toLocaleString('zh-CN', {
+                                                            <p>{`Source: ${data.sC} (${data.sA})`}</p>
+                                                            <p>{`Destination: ${data.dC} (${data.dA})`}</p>
+                                                            <p>{`Time: ${new Date(parseInt(data.ti) * 1000).toLocaleString('zh-CN', {
                                                                 month: '2-digit', day: '2-digit',
                                                                 hour: '2-digit', minute: '2-digit',
                                                                 hour12: false
-                                                            })}`}</p>
-                                                            <p>{`Source: ${data.srcCity} (${data.srcAsn})`}</p>
-                                                            <p>{`Destination: ${data.destCity} (${data.destAsn})`}</p>
+                                                            })}\u00A0\u00A0Samples: ${data.sm}\u00A0\u00A0${selectedMetric.toUpperCase()}: ${data[selectedMetric]}ms`}</p>
                                                             <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
                                                             <p>{`P50/P70/P90/P95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
-                                                            <p>{`Samples: ${data.samples}`}</p>
                                                         </div>
                                                     );
                                                 }
@@ -574,19 +615,19 @@ export default function NetworkSearch() {
                                         <Scatter
                                             name="Insufficient"
                                             data={performanceData.rawData
-                                                .filter(d => d.samples < 200)}
+                                                .filter(d => d.sm < 200)}
                                             fill="#ff7300"
                                         />
                                         <Scatter
                                             name="Moderate"
                                             data={performanceData.rawData
-                                                .filter(d => d.samples >= 200 && d.samples < 600)}
+                                                .filter(d => d.sm >= 200 && d.sm < 600)}
                                             fill="#8884d8"
                                         />
                                         <Scatter
                                             name="Sufficient"
                                             data={performanceData.rawData
-                                                .filter(d => d.samples >= 600)}
+                                                .filter(d => d.sm >= 600)}
                                             fill="#82ca9d"
                                         />
                                     </ScatterChart>
@@ -597,16 +638,35 @@ export default function NetworkSearch() {
                         {/* ASN and City Charts */}
                         <Grid item xs={12} md={6}>
                             <Paper sx={{ p: 2 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    ASN Latency Distribution
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                                        ASN Latency Distribution
+                                    </Typography>
+                                    <FormControl sx={{ minWidth: 120 }}>
+                                        <InputLabel>Metric</InputLabel>
+                                        <Select
+                                            value={selectedMetric}
+                                            onChange={(e) => setSelectedMetric(e.target.value)}
+                                            label="Metric"
+                                            size="small"
+                                        >
+                                            <MenuItem value="min">Min</MenuItem>
+                                            <MenuItem value="avg">Avg</MenuItem>
+                                            <MenuItem value="max">Max</MenuItem>
+                                            <MenuItem value="p50">P50</MenuItem>
+                                            <MenuItem value="p70">P70</MenuItem>
+                                            <MenuItem value="p90">P90</MenuItem>
+                                            <MenuItem value="p95">P95</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
                                 <ResponsiveContainer width="100%" height={300}>
                                     <BarChart data={performanceData.asnData}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="asn" />
                                         <YAxis />
                                         <Tooltip />
-                                        <Bar dataKey="p70" fill="#8884d8" />
+                                        <Bar dataKey={selectedMetric} fill="#8884d8" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -614,16 +674,35 @@ export default function NetworkSearch() {
 
                         <Grid item xs={12} md={6}>
                             <Paper sx={{ p: 2 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    City Latency Distribution
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                                        City Latency Distribution
+                                    </Typography>
+                                    <FormControl sx={{ minWidth: 120 }}>
+                                        <InputLabel>Metric</InputLabel>
+                                        <Select
+                                            value={selectedMetric}
+                                            onChange={(e) => setSelectedMetric(e.target.value)}
+                                            label="Metric"
+                                            size="small"
+                                        >
+                                            <MenuItem value="min">Min</MenuItem>
+                                            <MenuItem value="avg">Avg</MenuItem>
+                                            <MenuItem value="max">Max</MenuItem>
+                                            <MenuItem value="p50">P50</MenuItem>
+                                            <MenuItem value="p70">P70</MenuItem>
+                                            <MenuItem value="p90">P90</MenuItem>
+                                            <MenuItem value="p95">P95</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
                                 <ResponsiveContainer width="100%" height={300}>
                                     <BarChart data={performanceData.cityData}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="city" />
                                         <YAxis />
                                         <Tooltip />
-                                        <Bar dataKey="p70" fill="#82ca9d" />
+                                        <Bar dataKey={selectedMetric} fill="#82ca9d" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -645,21 +724,21 @@ export default function NetworkSearch() {
                                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                         />
                                         {performanceData.latencyData.map(data => (
-                                            <React.Fragment key={`pair-${data.srcCity}-${data.destCity}`}>
+                                            <React.Fragment key={`pair-${data.sC}-${data.dC}`}>
                                                 <Marker
-                                                    position={[data.srcLat, data.srcLon]}
+                                                    position={[data.sLa, data.sLo]}
                                                 >
                                                     <Popup>
-                                                        {data.srcCity}<br />
-                                                        {data.srcAsn}
+                                                        {data.sC}<br />
+                                                        {data.sA}
                                                     </Popup>
                                                 </Marker>
                                                 <Marker
-                                                    position={[data.destLat, data.destLon]}
+                                                    position={[data.dLa, data.dLo]}
                                                 >
                                                     <Popup>
-                                                        {data.destCity}<br />
-                                                        {data.destAsn}
+                                                        {data.dC}<br />
+                                                        {data.dA}
                                                     </Popup>
                                                 </Marker>
                                             </React.Fragment>
@@ -667,19 +746,20 @@ export default function NetworkSearch() {
                                         {/* Lines connecting source to destination with latency */}
                                         {performanceData.latencyData.map(data => (
                                             <Polyline
-                                                key={`${data.srcCity}-${data.destCity}`}
+                                                key={`${data.sC}-${data.dC}`}
                                                 positions={[
-                                                    [data.srcLat, data.srcLon],
-                                                    [data.destLat, data.destLon]
+                                                    [data.sLa, data.sLo],
+                                                    [data.dLa, data.dLo]
                                                 ]}
                                                 color="#1976d2"
                                                 weight={2}
                                                 opacity={0.5}
                                             >
                                                 <Popup>
-                                                    Src: {data.srcCity} ({data.srcAsn})<br />
-                                                    Dest: {data.destCity} ({data.destAsn})<br />
-                                                    P70 Latency: {data.latency}ms
+                                                    Src: {data.sC} ({data.sA})<br />
+                                                    Dest: {data.dC} ({data.dA})<br />
+                                                    Min/Avg/Max: {data.min}/{data.avg}/{data.max}<br />
+                                                    P50/P70/P90/P95: {data.p50}/{data.p70}/{data.p90}/{data.p95}
                                                 </Popup>
                                             </Polyline>
                                         ))}
@@ -704,16 +784,16 @@ export default function NetworkSearch() {
                                         <TableBody>
                                             {performanceData.rawData.map((data, index) => (
                                                 <TableRow key={index}>
-                                                    <TableCell>{data.srcCity}</TableCell>
-                                                    <TableCell>{data.srcAsn}</TableCell>
-                                                    <TableCell>{data.srcIP}</TableCell>
-                                                    <TableCell>{data.destCity}</TableCell>
-                                                    <TableCell>{data.destAsn}</TableCell>
-                                                    <TableCell>{data.destIP}</TableCell>
-                                                    <TableCell align="right">{data.samples}</TableCell>
+                                                    <TableCell>{data.sC}</TableCell>
+                                                    <TableCell>{data.sA}</TableCell>
+                                                    <TableCell>{data.sIP}</TableCell>
+                                                    <TableCell>{data.dC}</TableCell>
+                                                    <TableCell>{data.dA}</TableCell>
+                                                    <TableCell>{data.dIP}</TableCell>
+                                                    <TableCell align="right">{data.sm}</TableCell>
                                                     <TableCell align="right">{data.min}/{data.avg}/{data.max}</TableCell>
                                                     <TableCell align="right">{data.p50}/{data.p70}/{data.p90}/{data.p95}</TableCell>
-                                                    <TableCell align="right">{new Date(parseInt(data.time) * 1000).toLocaleString('zh-CN', {
+                                                    <TableCell align="right">{new Date(parseInt(data.ti) * 1000).toLocaleString('zh-CN', {
                                                         year: 'numeric',
                                                         month: '2-digit',
                                                         day: '2-digit',

@@ -205,15 +205,21 @@ export function startMockServer() {
                 // Generate latency data for each source-destination pair
                 const latencyData = sourceLocations.flatMap(source =>
                     destLocations.map(dest => ({
-                        srcCity: source.cityId,
-                        srcAsn: source.asn,
-                        srcLat: source.latitude,
-                        srcLon: source.longitude,
-                        destCity: dest.cityId,
-                        destAsn: dest.asn,
-                        destLat: dest.latitude,
-                        destLon: dest.longitude,
-                        latency: Math.floor(Math.random() * 100 + 20)
+                        sC: source.cityId,
+                        sA: source.asn,
+                        sLa: source.latitude,
+                        sLo: source.longitude,
+                        dC: dest.cityId,
+                        dA: dest.asn,
+                        dLa: dest.latitude,
+                        dLo: dest.longitude,
+                        min: Math.floor(Math.random() * 100 + 20),
+                        max: Math.floor(Math.random() * 100 + 20),
+                        avg: Math.floor(Math.random() * 100 + 20),
+                        p50: Math.floor(Math.random() * 100 + 20),
+                        p70: Math.floor(Math.random() * 100 + 20),
+                        p90: Math.floor(Math.random() * 100 + 20),
+                        p95: Math.floor(Math.random() * 100 + 20)
                     }))
                 );
 

@@ -11,7 +11,7 @@ import QueueIcon from '@mui/icons-material/Queue';
 const ClientTable = ({ title, clients }) => (
     <TableContainer component={Paper} sx={{ mt: 3 }}>
         <Typography variant="h6" sx={{ p: 2 }}>
-            {title}
+            {title} ({clients?.length || 0})
         </Typography>
         <Table>
             <TableHead>

@@ -24,8 +24,6 @@ def webapi_statistics(requests):
     }
 
 # //fixme，由于相同asn在同一个城市有多个asn号码，会造成选择cityid时少了，如：RU,Moscow,PJSC Rostelecom
-# //fixme, city名字中有空格，貌似搜索有问题，如：DE,Frankfurt am Main 出不来16509，测试ip：63.176.70.29
-# ?src=US-NYC-7922,US-NYC-3356&dist=US-SFO-16509,US-SFO-15169
 def webapi_performance(requests):
     if 'src' not in requests['query'] or 'dist' not in requests['query']:
         return {'statusCode': 400, 'result': 'param src and dist not found!'}
@@ -73,17 +71,24 @@ def webapi_performance(requests):
         if item['src'] in cityobjs and item['dist'] in cityobjs:
             srcobj = cityobjs[item['src']]
             distobj = cityobjs[item['dist']]
-            # 分cityid的延迟数据分列，取p70
+            # 分cityid的延迟数据分列
             outdata['latencyData'].append({
-                'srcCity': data_layer.friendly_cityname(srcobj),
-                'srcAsn': data_layer.friendly_cityshortasn(srcobj),
-                'srcLat': srcobj['latitude'],
-                'srcLon': srcobj['longitude'],
-                'destCity': data_layer.friendly_cityname(distobj),
-                'destAsn': data_layer.friendly_cityshortasn(distobj),
-                'destLat': distobj['latitude'],
-                'destLon': distobj['longitude'],
-                'latency': round(item['p70']/1000, 1)
+                # 压缩返回数据体积
+                'sC': data_layer.friendly_cityname(srcobj), # srcCity
+                'sA': data_layer.friendly_cityshortasn(srcobj), #srcAsn
+                'sLa': srcobj['latitude'], #srcLat
+                'sLo': srcobj['longitude'], #srcLon
+                'dC': data_layer.friendly_cityname(distobj),
+                'dA': data_layer.friendly_cityshortasn(distobj),
+                'dLa': distobj['latitude'],
+                'dLo': distobj['longitude'],
+                'min': round(item['min']/1000, 1),
+                'max': round(item['max']/1000, 1),
+                'avg': round(item['avg']/1000, 1),
+                'p50': round(item['p50']/1000, 1),
+                'p70': round(item['p70']/1000, 1),
+                'p90': round(item['p90']/1000, 1),
+                'p95': round(item['p95']/1000, 1)
             })
             # 分asn/city的延迟数据汇总，取p70
             for key in ('asn','city'):
@@ -122,13 +127,13 @@ def webapi_performance(requests):
             srcobj = cityobjs[item['src']]
             distobj = cityobjs[item['dist']]
             outdata['rawData'].append({
-                'srcCity': data_layer.friendly_cityname(srcobj) + " - " + str(item['src']),
-                'srcAsn': data_layer.friendly_cityasn(srcobj),
-                'srcIP': f"{srcobj['startIp']} - {srcobj['endIp']}",
-                'destCity': data_layer.friendly_cityname(distobj) + " - " + str(item['dist']),
-                'destAsn': data_layer.friendly_cityasn(distobj),
-                'destIP': f"{distobj['startIp']} - {distobj['endIp']}",
-                'samples': int(item['samples']),
+                'sC': data_layer.friendly_cityname(srcobj) + " - " + str(item['src']),
+                'sA': data_layer.friendly_cityasn(srcobj),
+                'sIP': f"{srcobj['startIp']} - {srcobj['endIp']}",
+                'dC': data_layer.friendly_cityname(distobj) + " - " + str(item['dist']),
+                'dA': data_layer.friendly_cityasn(distobj),
+                'dIP': f"{distobj['startIp']} - {distobj['endIp']}",
+                'sm': int(item['samples']),
                 'min': round(item['min']/1000, 2),
                 'max': round(item['max']/1000, 2),
                 'avg': round(item['avg']/1000, 2),
@@ -136,7 +141,7 @@ def webapi_performance(requests):
                 'p70': round(item['p70']/1000, 2),
                 'p90': round(item['p90']/1000, 2),
                 'p95': round(item['p95']/1000, 2),
-                'time': item['update_time'].timestamp()
+                'ti': item['update_time'].timestamp()
             })
 
     return {
