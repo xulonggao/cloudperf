@@ -46,12 +46,53 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// Function to calculate color based on distance and latency
+const calculateColor = (distance, latency) => {
+    /*
+        光在光纤中传播速度约为 2×10⁸ m/s（真空中光速的2/3）
+        实际网络中需要考虑路由器跳转、网络拥塞等因素
+        地理距离通常采用大圆距离计算
+        理论最小延迟 = 距离(km) / (200 km/ms)
+        实际延迟 = 理论最小延迟 × 网络因素系数
+        网络因素系数通常在1.5-2.5之间
+        每1000公里理论延迟约5ms
+        实际延迟通常为7.5-12.5ms/1000km
+    */
+    const normalizedLatency = Math.min(latency / 200, 1);
+    const hue = (1 - normalizedLatency) * 120; // 0 is red, 120 is green
+    return `hsl(${hue}, 70%, 50%)`;
+};
+
+// Custom marker icons
+// Import marker icons
+import redMarkerIcon from '../assets/marker-icon-2x-red.png';
+import blueMarkerIcon from '../assets/marker-icon-2x-blue.png';
+import markerShadow from '../assets/marker-shadow.png';
+
+const sourceIcon = new L.Icon({
+    iconUrl: redMarkerIcon,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
+const destIcon = new L.Icon({
+    iconUrl: blueMarkerIcon,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
 // Fix for Leaflet marker icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconRetinaUrl: blueMarkerIcon,
+    iconUrl: blueMarkerIcon,
+    shadowUrl: markerShadow,
 });
 
 // Calculate distance between two points using Haversine formula
@@ -493,6 +534,7 @@ export default function NetworkSearch() {
                                                         <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
                                                             <p>{`Source: ${data.sC} ${data.sA}`}</p>
                                                             <p>{`Destination: ${data.dC} ${data.dA}`}</p>
+                                                            <p>{`Samples: ${data.sm}`}</p>
                                                             <p>{`Distance: ${Math.round(data.dist)} km\u00A0\u00A0${selectedMetric.toUpperCase()}: ${data[selectedMetric]}ms`}</p>
                                                             <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
                                                             <p>{`p50/p70/p90/p95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
@@ -781,6 +823,7 @@ export default function NetworkSearch() {
                                             <React.Fragment key={`pair-${data.sC}-${data.dC}`}>
                                                 <Marker
                                                     position={[data.sLa, data.sLo]}
+                                                    icon={sourceIcon}
                                                 >
                                                     <Popup>
                                                         {data.sC}<br />
@@ -789,6 +832,7 @@ export default function NetworkSearch() {
                                                 </Marker>
                                                 <Marker
                                                     position={[data.dLa, data.dLo]}
+                                                    icon={destIcon}
                                                 >
                                                     <Popup>
                                                         {data.dC}<br />
@@ -805,9 +849,9 @@ export default function NetworkSearch() {
                                                     [data.sLa, data.sLo],
                                                     [data.dLa, data.dLo]
                                                 ]}
-                                                color="#1976d2"
+                                                color={calculateColor(data.dist, data.p70)}
                                                 weight={2}
-                                                opacity={0.5}
+                                                opacity={0.7}
                                             >
                                                 <Popup>
                                                     Src: {data.sC} ({data.sA})<br />

@@ -110,6 +110,7 @@ def webapi_performance(requests):
                     'dA': data_layer.friendly_cityshortasn(distobj),
                     'dLa': distobj['latitude'],
                     'dLo': distobj['longitude'],
+                    'sm': int(item['samples']),
                     'min': round(item['min']/1000, 1),
                     'max': round(item['max']/1000, 1),
                     'avg': round(item['avg']/1000, 1),
@@ -121,11 +122,11 @@ def webapi_performance(requests):
                 # 分asn/city的延迟数据汇总，取p70
                 for key in ('asn','city'):
                     if key == 'asn':
-                        srcsubkey = data_layer.friendly_cityandasn(srcobj) #'ASN' + str(srcobj['asn']) + ' ' + srcobj['name']
-                        distsubkey = data_layer.friendly_cityandasn(distobj) #'ASN' + str(distobj['asn']) + ' ' + distobj['name']
+                        srcsubkey = data_layer.friendly_cityandasn(srcobj)
+                        distsubkey = data_layer.friendly_cityandasn(distobj)
                     else:
-                        srcsubkey = srcobj['name']
-                        distsubkey = distobj['name']
+                        srcsubkey = data_layer.friendly_cityname(srcobj)
+                        distsubkey = data_layer.friendly_cityname(distobj)
                     for subkey in (srcsubkey,distsubkey):
                         if subkey not in data[key]:
                             data[key][subkey] = {'sm':0,'isS': subkey in srcsubkey}
