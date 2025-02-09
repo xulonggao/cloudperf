@@ -58,11 +58,12 @@ export const fetchDashboardStats = async () => {
     }
 };
 
-export const fetchPerformanceData = async (srcCityIds = [], destCityIds = []) => {
+export const fetchPerformanceData = async (srcCityIds = [], destCityIds = [], rawData = false) => {
     try {
         const params = new URLSearchParams();
         if (srcCityIds.length) params.append('src', srcCityIds.join(','));
         if (destCityIds.length) params.append('dist', destCityIds.join(','));
+        if (rawData) params.append('rawData', '1')
         const response = await fetchWithTimeout(`${API_BASE_URL}/performance?${params.toString()}`);
         return handleJsonResponse(response);
     } catch (error) {

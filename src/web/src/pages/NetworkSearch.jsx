@@ -193,8 +193,13 @@ export default function NetworkSearch() {
         const destCityIds = selectedDestAsns.length ? selectedDestAsns.map(asn => asn.cityId)
             : destAsns.map(asn => asn.cityId);
         try {
-            const data = await fetchPerformanceData(srcCityIds, destCityIds);
-            setPerformanceData(data);
+            const [data, rawData] = await Promise.all([
+                fetchPerformanceData(srcCityIds, destCityIds, false),
+                fetchPerformanceData(srcCityIds, destCityIds, true)
+            ]);
+            const compData = { ...data, rawData };
+            // data.rawData = rawData;
+            setPerformanceData(compData);
         } catch (error) {
             console.error('Error fetching performance data:', error);
         } finally {
@@ -351,7 +356,7 @@ export default function NetworkSearch() {
                                                 Samples (Selected Src/Dest)
                                             </Typography>
                                             <Typography variant="h5">
-                                                {performanceData.samples} ({performanceData.srcCityIds}/{performanceData.distCityIds})
+                                                {performanceData.sm} ({performanceData.srcCityIds}/{performanceData.distCityIds})
                                             </Typography>
                                         </CardContent>
                                     </Card>

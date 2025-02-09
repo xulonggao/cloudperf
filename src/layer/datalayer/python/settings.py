@@ -17,6 +17,8 @@ CACHEKEY_CITYJOB = 'job'
 CACHEKEY_ONLINE_SERVERS = 'online'
 # 用于登录用户授权
 CACHEKEY_USERAUTH = 'user'
+# 用于暂停客户端任务，value为重试时间，如3600秒
+CACHEKEY_PAUSE = 'pause'
 
 DB_READ_HOST='rds-r.cloudperf.vpc'
 DB_WRITE_HOST='rds.cloudperf.vpc'

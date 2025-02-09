@@ -29,120 +29,131 @@ def webapi_performance(requests):
         return {'statusCode': 400, 'result': 'param src and dist not found!'}
     src = unquote_plus(requests['query']['src'])
     dist = unquote_plus(requests['query']['dist'])
-    latencyData = data_layer.get_latency_data_cross_city(src, dist)
-    rawData = data_layer.get_latency_rawdata_cross_city(src, dist)
-    # print(latencyData)
-    # src,dist,samples,min,max,avg,p50,p70,p90,p95
-    # "1395638387,2228836286,10,23900,25500,24600.0000,24600.0000,24800.0000,25100.0000,25100.0000",
-    if latencyData == None or rawData == None:
-        return {'statusCode': 400, 'result': 'param src and dist invalid!'}
     srclist = src.split(',')
     distlist = dist.split(',')
-    outdata = {
-        "samples": 0,
-        "srcCityIds": len(srclist),
-        "distCityIds": len(distlist),
-        "asnData": [],
-        "cityData": [],
-        "latencyData": [],
-        "rawData": [],
-    }
     # 找到所有相关的city_id对应对象
     cityobjs = {}
     for city_id in chain(srclist, distlist):
         city_id = int(city_id)
         city_obj = data_layer.get_cityobject_by_id(city_id)
-        print(city_id, city_obj)
+        # print(city_id, city_obj)
         if city_obj and len(city_obj) > 0:
             cityobjs[city_id] = city_obj[0]
-    data = {
-        'asn': {},
-        'city': {}
-    }
-    for item in latencyData:
-        # samples数据汇总
-        outdata['samples'] += item['samples']
+
+    if 'rawData' in requests['query']:
+        # 由于 alb 调用 Lambda 有 1MB 限制，所以把数据进行了拆分，原始数据和延迟数据分别给出
+        rawData = data_layer.get_latency_rawdata_cross_city(src, dist)
+        if rawData == None:
+            return {'statusCode': 400, 'result': 'param src and dist invalid!'}
+        outdata = []
+        # 原始数据处理
+        for item in rawData:
+            if item['src'] in cityobjs and item['dist'] in cityobjs:
+                srcobj = cityobjs[item['src']]
+                distobj = cityobjs[item['dist']]
+                outdata.append({
+                    'sC': data_layer.friendly_cityname(srcobj) + " - " + str(item['src']),
+                    'sA': data_layer.friendly_cityasn(srcobj),
+                    'sIP': f"{srcobj['startIp']} - {srcobj['endIp']}",
+                    'dC': data_layer.friendly_cityname(distobj) + " - " + str(item['dist']),
+                    'dA': data_layer.friendly_cityasn(distobj),
+                    'dIP': f"{distobj['startIp']} - {distobj['endIp']}",
+                    'sm': int(item['samples']),
+                    'min': round(item['min']/1000, 2),
+                    'max': round(item['max']/1000, 2),
+                    'avg': round(item['avg']/1000, 2),
+                    'p50': round(item['p50']/1000, 2),
+                    'p70': round(item['p70']/1000, 2),
+                    'p90': round(item['p90']/1000, 2),
+                    'p95': round(item['p95']/1000, 2),
+                    'ti': item['update_time']
+                })
+    else:
+        latencyData = data_layer.get_latency_data_cross_city(src, dist)
+        # print(latencyData)
+        # src,dist,samples,min,max,avg,p50,p70,p90,p95
+        # "1395638387,2228836286,10,23900,25500,24600.0000,24600.0000,24800.0000,25100.0000,25100.0000",
+        if latencyData == None:
+            return {'statusCode': 400, 'result': 'param src and dist invalid!'}
+        outdata = {
+            "sm": 0,
+            "srcCityIds": len(srclist),
+            "distCityIds": len(distlist),
+            "asnData": [],
+            "cityData": [],
+            "latencyData": [],
+        }
+        data = {
+            'asn': {},
+            'city': {}
+        }
+        for item in latencyData:
+            # samples数据汇总
+            outdata['sm'] += item['samples']
+            # 各种Latency数据汇总
+            for key in ('min','max','avg','p50','p70','p90','p95'):
+                if key not in outdata:
+                    outdata[key] = {'sm':0, 'data':0}
+                outdata[key]['sm'] += item['samples']
+                outdata[key]['data'] += item[key] * item['samples']
+            if item['src'] in cityobjs and item['dist'] in cityobjs:
+                srcobj = cityobjs[item['src']]
+                distobj = cityobjs[item['dist']]
+                # 分cityid的延迟数据分列
+                outdata['latencyData'].append({
+                    # 压缩返回数据体积
+                    'sC': data_layer.friendly_cityname(srcobj), # srcCity
+                    'sA': data_layer.friendly_cityshortasn(srcobj), #srcAsn
+                    'sLa': srcobj['latitude'], #srcLat
+                    'sLo': srcobj['longitude'], #srcLon
+                    'dC': data_layer.friendly_cityname(distobj),
+                    'dA': data_layer.friendly_cityshortasn(distobj),
+                    'dLa': distobj['latitude'],
+                    'dLo': distobj['longitude'],
+                    'min': round(item['min']/1000, 1),
+                    'max': round(item['max']/1000, 1),
+                    'avg': round(item['avg']/1000, 1),
+                    'p50': round(item['p50']/1000, 1),
+                    'p70': round(item['p70']/1000, 1),
+                    'p90': round(item['p90']/1000, 1),
+                    'p95': round(item['p95']/1000, 1)
+                })
+                # 分asn/city的延迟数据汇总，取p70
+                for key in ('asn','city'):
+                    if key == 'asn':
+                        srcsubkey = 'ASN' + str(srcobj['asn']) + ' ' + srcobj['name']
+                        distsubkey = 'ASN' + str(distobj['asn']) + ' ' + distobj['name']
+                    else:
+                        srcsubkey = srcobj['name']
+                        distsubkey = distobj['name']
+                    for subkey in (srcsubkey,distsubkey):
+                        if subkey not in data[key]:
+                            data[key][subkey] = {'sm':0,'isS': subkey in srcsubkey}
+                            for datakey in ('min','max','avg','p50','p70','p90','p95'):
+                                data[key][subkey][datakey] = 0
+                        data[key][subkey]['sm'] += item['samples']
+                        for datakey in ('min','max','avg','p50','p70','p90','p95'):
+                            data[key][subkey][datakey] += item[datakey] * item['samples']
+        latencyData = None
+
         # 各种Latency数据汇总
+        outdata['sm'] = int(outdata['sm'])
         for key in ('min','max','avg','p50','p70','p90','p95'):
-            if key not in outdata:
-                outdata[key] = {'samples':0, 'data':0}
-            outdata[key]['samples'] += item['samples']
-            outdata[key]['data'] += item[key] * item['samples']
-        if item['src'] in cityobjs and item['dist'] in cityobjs:
-            srcobj = cityobjs[item['src']]
-            distobj = cityobjs[item['dist']]
-            # 分cityid的延迟数据分列
-            outdata['latencyData'].append({
-                # 压缩返回数据体积
-                'sC': data_layer.friendly_cityname(srcobj), # srcCity
-                'sA': data_layer.friendly_cityshortasn(srcobj), #srcAsn
-                'sLa': srcobj['latitude'], #srcLat
-                'sLo': srcobj['longitude'], #srcLon
-                'dC': data_layer.friendly_cityname(distobj),
-                'dA': data_layer.friendly_cityshortasn(distobj),
-                'dLa': distobj['latitude'],
-                'dLo': distobj['longitude'],
-                'min': round(item['min']/1000, 1),
-                'max': round(item['max']/1000, 1),
-                'avg': round(item['avg']/1000, 1),
-                'p50': round(item['p50']/1000, 1),
-                'p70': round(item['p70']/1000, 1),
-                'p90': round(item['p90']/1000, 1),
-                'p95': round(item['p95']/1000, 1)
-            })
-            # 分asn/city的延迟数据汇总，取p70
-            for key in ('asn','city'):
-                if key == 'asn':
-                    srcsubkey = 'ASN' + str(srcobj['asn']) + ' ' + srcobj['name']
-                    distsubkey = 'ASN' + str(distobj['asn']) + ' ' + distobj['name']
-                else:
-                    srcsubkey = srcobj['name']
-                    distsubkey = distobj['name']
-                for subkey in (srcsubkey,distsubkey):
-                    if subkey not in data[key]:
-                        data[key][subkey] = {'samples':0, 'data':0}
-                    data[key][subkey]['samples'] += item['samples']
-                    data[key][subkey]['data'] += item['p70'] * item['samples']
+            if key in outdata:
+                outdata[key] = round(outdata[key]['data'] / outdata[key]['sm'] / 1000, 1)
+            else:
+                outdata[key] = 0
 
-    # 各种Latency数据汇总
-    outdata['samples'] = int(outdata['samples'])
-    for key in ('min','max','avg','p50','p70','p90','p95'):
-        if key in outdata:
-            outdata[key] = round(outdata[key]['data'] / outdata[key]['samples'] / 1000, 1)
-        else:
-            outdata[key] = 0
-
-    # 分asn/city的延迟数据汇总，取p70
-    print(data)
-    for key in ('asn','city'):
-        for k, v in data[key].items():
-            outdata[key+'Data'].append({
-                key: k,
-                'p70': round(data[key][k]['data'] / data[key][k]['samples'] / 1000, 1)
-            })
-
-    # 原始数据处理
-    for item in rawData:
-        if item['src'] in cityobjs and item['dist'] in cityobjs:
-            srcobj = cityobjs[item['src']]
-            distobj = cityobjs[item['dist']]
-            outdata['rawData'].append({
-                'sC': data_layer.friendly_cityname(srcobj) + " - " + str(item['src']),
-                'sA': data_layer.friendly_cityasn(srcobj),
-                'sIP': f"{srcobj['startIp']} - {srcobj['endIp']}",
-                'dC': data_layer.friendly_cityname(distobj) + " - " + str(item['dist']),
-                'dA': data_layer.friendly_cityasn(distobj),
-                'dIP': f"{distobj['startIp']} - {distobj['endIp']}",
-                'sm': int(item['samples']),
-                'min': round(item['min']/1000, 2),
-                'max': round(item['max']/1000, 2),
-                'avg': round(item['avg']/1000, 2),
-                'p50': round(item['p50']/1000, 2),
-                'p70': round(item['p70']/1000, 2),
-                'p90': round(item['p90']/1000, 2),
-                'p95': round(item['p95']/1000, 2),
-                'ti': item['update_time'].timestamp()
-            })
+        # 分asn/city的延迟数据汇总，取延时情况
+        for key in ('asn','city'):
+            for k, v in data[key].items():
+                datas = {
+                    key: k
+                }
+                for datakey in ('min','max','avg','p50','p70','p90','p95'):
+                    datas[datakey] = round(data[key][k][datakey] / data[key][k]['sm'] / 1000, 1)
+                outdata[key+'Data'].append(datas)
+        data = None
 
     return {
         'statusCode': 200,
@@ -393,45 +404,53 @@ def fping_logic(requests):
                     }
                     data_layer.update_statistics_data(datas)
     if requests['useragent'].startswith('fping-pingable'):
-        data_layer.update_client_status(requests['srcip'], 'ping')
-        # get ping job here, ensure buffer data enough
-        data_layer.refresh_iprange_check()
-        for i in range(0, 20):
-            obj = data_layer.cache_pop(settings.CACHEKEY_PINGABLE)
-            if obj:
-                stip = ipaddress.IPv4Address(obj['start_ip'])
-                etip = ipaddress.IPv4Address(obj['end_ip'])
-                #print(f"fetch ping job: {stip} {etip} {obj['city_id']}")
-                ret["job"].append({
-                    "jobid": 'ping' + str(obj['city_id']),
-                    # disable stderr log here with 2> /dev/null , but it will cause error
-                    # only found 100 max pingable ip to save time
-                    "command": f"fping -g {stip} {etip} -r 2 -a -q -X 100",
-                })
-            else:
-                break
-        # print(f"fetch {len(ret['job'])} ping job")
-        if len(ret["job"]) > 0:
-            ret["next"] = 'ping'
-            ret["interval"] = 1
+        ttl = data_layer.update_client_status(requests['srcip'], 'ping')
+        # need pause
+        if isinstance(ttl, str):
+            ret["interval"] = int(ttl)
+        else:
+            # get ping job here, ensure buffer data enough
+            data_layer.refresh_iprange_check()
+            for i in range(0, 20):
+                obj = data_layer.cache_pop(settings.CACHEKEY_PINGABLE)
+                if obj:
+                    stip = ipaddress.IPv4Address(obj['start_ip'])
+                    etip = ipaddress.IPv4Address(obj['end_ip'])
+                    #print(f"fetch ping job: {stip} {etip} {obj['city_id']}")
+                    ret["job"].append({
+                        "jobid": 'ping' + str(obj['city_id']),
+                        # disable stderr log here with 2> /dev/null , but it will cause error
+                        # only found 100 max pingable ip to save time
+                        "command": f"fping -g {stip} {etip} -r 2 -a -q -X 100",
+                    })
+                else:
+                    break
+            # print(f"fetch {len(ret['job'])} ping job")
+            if len(ret["job"]) > 0:
+                ret["next"] = 'ping'
+                ret["interval"] = 1
     else:
-        data_layer.update_client_status(requests['srcip'], 'data')
-        for i in range(0, 10):
-            job = data_layer.get_pingjob_by_cityid(city_id)
-            #print(job)
-            if job != None:
-                ips = [str(ipaddress.IPv4Address(x)) for x in job['ips']]
-                #print(f"fetch data job: {job['city_id']} {len(ips)}")
-                ret["job"].append({
-                    "jobid": 'data' + str(job['city_id']),
-                    "command": "fping -a -q -C 11 " + ' '.join(ips),
-                })
-            else:
-                break
-        # print(f"fetch {len(ret['job'])} data job")
-        if len(ret['job']) > 0:
-            ret["next"] = "data"
-            ret["interval"] = 1
+        ttl = data_layer.update_client_status(requests['srcip'], 'data')
+        # need pause
+        if isinstance(ttl, str):
+            ret["interval"] = int(ttl)
+        else:
+            for i in range(0, 10):
+                job = data_layer.get_pingjob_by_cityid(city_id)
+                #print(job)
+                if job != None:
+                    ips = [str(ipaddress.IPv4Address(x)) for x in job['ips']]
+                    #print(f"fetch data job: {job['city_id']} {len(ips)}")
+                    ret["job"].append({
+                        "jobid": 'data' + str(job['city_id']),
+                        "command": "fping -a -q -C 11 " + ' '.join(ips),
+                    })
+                else:
+                    break
+            # print(f"fetch {len(ret['job'])} data job")
+            if len(ret['job']) > 0:
+                ret["next"] = "data"
+                ret["interval"] = 1
     return {
         'statusCode': 200,
         'result': ret

@@ -12,7 +12,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 //import * as events_targets from 'aws-cdk-lib/aws-events-targets';
 //import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as cr from 'aws-cdk-lib/custom-resources';
-import * as sqs from 'aws-cdk-lib/aws-sqs';
+//import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -76,17 +76,16 @@ export class CloudperfStack extends cdk.Stack {
       'Allow ElastiCache access from Internal'
     );
 
-    // 创建 Aurora Serverless 集群
-    const db = new rds.ServerlessCluster(this, 'db-', {
+    // 创建 Aurora Serverless V2 集群
+    const db = new rds.DatabaseCluster(this, 'db-', {
+      engine: rds.DatabaseClusterEngine.auroraMysql({ version: rds.AuroraMysqlEngineVersion.VER_3_07_1 }),
+      serverlessV2MinCapacity: 0.5,
+      serverlessV2MaxCapacity: 128,
+      writer: rds.ClusterInstance.serverlessV2('writer'),
+      readers: [rds.ClusterInstance.serverlessV2('reader', { scaleWithWriter: true })],
       vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
-      engine: rds.DatabaseClusterEngine.AURORA_MYSQL,
-      scaling: {
-        autoPause: cdk.Duration.minutes(60),
-        minCapacity: rds.AuroraCapacityUnit.ACU_1,
-        maxCapacity: rds.AuroraCapacityUnit.ACU_256
       },
       securityGroups: [sg],
     });
@@ -107,20 +106,20 @@ export class CloudperfStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    // 创建 fping 任务 //fixme delete if not use
-    const fpingQueue = new sqs.Queue(this, stackPrefix + 'fping', {
-      queueName: stackPrefix + 'fping',
-      visibilityTimeout: cdk.Duration.minutes(15 * 4),
-    });
+    // 创建 fping 任务
+    // const fpingQueue = new sqs.Queue(this, stackPrefix + 'fping', {
+    //  queueName: stackPrefix + 'fping',
+    //  visibilityTimeout: cdk.Duration.minutes(15 * 4),
+    //});
 
     // 创建 Lambda 工具层
     // fping 带有可执行的fping命令
-    const fpingLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-fping', {
-      code: lambda.Code.fromAsset('src/layer/fping-layer.zip'),
-      compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
-      license: 'Apache-2.0',
-      description: 'A layer for fping',
-    });
+    // const fpingLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-fping', {
+    //  code: lambda.Code.fromAsset('src/layer/fping-layer.zip'),
+    //  compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
+    //  license: 'Apache-2.0',
+    //  description: 'A layer for fping',
+    //});
     // pythonlib 包括 redis mysql 连接库等
     const pythonLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-pythonlib', {
       code: lambda.Code.fromAsset('src/layer/pythonlib-layer.zip'),
@@ -143,7 +142,7 @@ export class CloudperfStack extends cdk.Stack {
       DB_SECRET: db.secret?.secretArn || '',
       CACHE_HOST: 'redis.cloudperf.vpc', // cacheCluster.attrEndpointAddress,
       CACHE_PORT: cacheCluster.attrEndpointPort,
-      FPING_QUEUE: fpingQueue.queueUrl,
+      // FPING_QUEUE: fpingQueue.queueUrl,
     };
     const web_environments = {
       AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap',
@@ -389,7 +388,7 @@ export class CloudperfStack extends cdk.Stack {
     new route53.CnameRecord(this, 'RDSRRecord', {
       zone: hostedZone,
       recordName: 'rds-r',
-      domainName: db.clusterEndpoint.hostname,
+      domainName: db.clusterReadEndpoint.hostname,
       ttl: cdk.Duration.minutes(5)
     });
     new route53.CnameRecord(this, 'APIRecord', {
@@ -403,6 +402,11 @@ export class CloudperfStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'dbHost', {
       value: db.clusterEndpoint.hostname,
       description: 'DB endpoint'
+    });
+
+    new cdk.CfnOutput(this, 'dbReadHost', {
+      value: db.clusterReadEndpoint.hostname,
+      description: 'DB read endpoint'
     });
 
     new cdk.CfnOutput(this, 'dbSecret', {
@@ -425,10 +429,10 @@ export class CloudperfStack extends cdk.Stack {
       description: 'Internal Security Group ID'
     });
 
-    new cdk.CfnOutput(this, 'fpingQueue', {
-      value: fpingQueue.queueArn,
-      description: 'fping job queue'
-    });
+    //new cdk.CfnOutput(this, 'fpingQueue', {
+    //  value: fpingQueue.queueArn,
+    //  description: 'fping job queue'
+    //});
 
     new cdk.CfnOutput(this, 's3Bucket', {
       value: s3Bucket.bucketArn,

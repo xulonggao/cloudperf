@@ -119,7 +119,7 @@ def mysql_batch_execute(sql: str):
             sql = sql.strip()
             if sql:  # 忽略空语句
                 cursor.execute(sql)
-                if sql.lower().startswith("select"):
+                if sql.lower().startswith("select") or sql.lower().startswith("with"):
                     # 查询语句
                     rows = cursor.fetchall()
                     if rows:
@@ -348,7 +348,7 @@ def get_latency_rawdata_cross_city(sourceCityId:str, destCityId:str):
     return cache_mysql_select(f'''
 select src_city_id as src, dist_city_id as dist, samples, latency_min as min, latency_max as max,
 latency_avg as avg,latency_p50 as p50,latency_p70 as p70,latency_p90 as p90,latency_p95 as p95,
-update_time from statistics where src_city_id in ({sourceCityId}) and dist_city_id in ({destCityId})
+UNIX_TIMESTAMP(update_time) as update_time from statistics where src_city_id in ({sourceCityId}) and dist_city_id in ({destCityId})
 ''')
 
 def get_latency_data_cross_city(sourceCityId:str, destCityId:str):
@@ -697,10 +697,11 @@ def get_pingjob_by_cityid(src_city_id:int):
         'ips': [x[0] for x in iplists]
     }
 
-# agent=ping or data
+# agent=ping or data, return str(int) for sleep intval, pause the system
 def update_client_status(ip:str, agent:str):
     tracker = OnlineIPTracker(redis_pool, settings.CACHEKEY_ONLINE_SERVERS + agent)
     tracker.update_ip(ip)
+    return cache_get(settings.CACHEKEY_PAUSE)
 
 # 计算数组的 Pxx 取值
 # 该函数可以使用 np.percentile(sorted_data, 75) 代替，只是npmpy库太大
