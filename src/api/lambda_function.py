@@ -121,8 +121,8 @@ def webapi_performance(requests):
                 # 分asn/city的延迟数据汇总，取p70
                 for key in ('asn','city'):
                     if key == 'asn':
-                        srcsubkey = 'ASN' + str(srcobj['asn']) + ' ' + srcobj['name']
-                        distsubkey = 'ASN' + str(distobj['asn']) + ' ' + distobj['name']
+                        srcsubkey = data_layer.friendly_cityandasn(srcobj) #'ASN' + str(srcobj['asn']) + ' ' + srcobj['name']
+                        distsubkey = data_layer.friendly_cityandasn(distobj) #'ASN' + str(distobj['asn']) + ' ' + distobj['name']
                     else:
                         srcsubkey = srcobj['name']
                         distsubkey = distobj['name']
@@ -148,7 +148,8 @@ def webapi_performance(requests):
         for key in ('asn','city'):
             for k, v in data[key].items():
                 datas = {
-                    key: k
+                    key: k,
+                    'isS': data[key][k]['isS']
                 }
                 for datakey in ('min','max','avg','p50','p70','p90','p95'):
                     datas[datakey] = round(data[key][k][datakey] / data[key][k]['sm'] / 1000, 1)

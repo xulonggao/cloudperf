@@ -39,7 +39,8 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    Legend
+    Legend,
+    Cell
 } from 'recharts';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -670,8 +671,32 @@ export default function NetworkSearch() {
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="asn" />
                                         <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey={selectedMetric} fill="#8884d8" />
+                                        <Tooltip content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const data = payload[0].payload;
+                                                return (
+                                                    <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
+                                                        <p>{`${data.isS ? 'Src' : 'Dest'} ASN: ${data.asn}`}</p>
+                                                        <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
+                                                        <p>{`P50/P70/P90/P95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }} />
+                                        <Legend content={({ payload }) => (
+                                            <div style={{ backgroundColor: 'white', padding: '5px', border: '1px solid #ccc' }}>
+                                                <span style={{ color: '#ff7300', marginRight: '10px' }}>● Source ASN</span>
+                                                <span style={{ color: '#82ca9d' }}>● Destination ASN</span>
+                                            </div>
+                                        )} />
+                                        <Bar dataKey={selectedMetric} name={selectedMetric}>
+                                            {
+                                                performanceData.asnData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.isS ? '#ff7300' : '#82ca9d'} />
+                                                ))
+                                            }
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -706,8 +731,32 @@ export default function NetworkSearch() {
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="city" />
                                         <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey={selectedMetric} fill="#82ca9d" />
+                                        <Tooltip content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const data = payload[0].payload;
+                                                return (
+                                                    <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
+                                                        <p>{`${data.isS ? 'Src' : 'Dest'} City: ${data.city}`}</p>
+                                                        <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
+                                                        <p>{`P50/P70/P90/P95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }} />
+                                        <Legend content={({ payload }) => (
+                                            <div style={{ backgroundColor: 'white', padding: '5px', border: '1px solid #ccc' }}>
+                                                <span style={{ color: '#ff7300', marginRight: '10px' }}>● Source City</span>
+                                                <span style={{ color: '#82ca9d' }}>● Destination City</span>
+                                            </div>
+                                        )} />
+                                        <Bar dataKey={selectedMetric} name={selectedMetric}>
+                                            {
+                                                performanceData.cityData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.isS ? '#ff7300' : '#82ca9d'} />
+                                                ))
+                                            }
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </Paper>
