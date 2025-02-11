@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import React from 'react';
 import {
     fetchCitySets,
@@ -28,6 +28,8 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    Checkbox,
+    FormControlLabel
 } from '@mui/material';
 import {
     BarChart,
@@ -132,17 +134,23 @@ export default function NetworkSearch() {
     const [destCities, setDestCities] = useState([]);
     const [selectedDestCity, setSelectedDestCity] = useState('');
 
+    const [allDestAsns, setAllDestAsns] = useState([]); // Store all fetched ASNs
     const [destAsns, setDestAsns] = useState([]);
     const [selectedDestAsns, setSelectedDestAsns] = useState([]);
+    const [selectedAsnTypes, setSelectedAsnTypes] = useState(['isp']); // Default to ISP selected
 
     // State for performance data and loading
     const [performanceData, setPerformanceData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    const getNoOptionsText = useCallback(() => {
+        return isLoading ? "Loading..." : "No options";
+    }, [isLoading]);
+
     useEffect(() => {
         // Fetch city sets and countries on mount
-        setIsLoading(true);
         const fetchInitialData = async () => {
+            setIsLoading(true);
             try {
                 const [setsData, countriesData] = await Promise.all([
                     fetchCitySets(),
@@ -153,77 +161,124 @@ export default function NetworkSearch() {
                 setDestCountries(countriesData);
             } catch (error) {
                 console.error('Error fetching initial data:', error);
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchInitialData();
-        setIsLoading(false);
     }, []);
 
     useEffect(() => {
         // Fetch countries when city sets is selected
         setSelectedDestCountry('');
-        setIsLoading(true);
-        if (selectedSet) {
-            setDestCountries([]);
-            fetchCountries(selectedSet)
-                .then(data => setDestCountries(data))
-                .catch(error => console.error('Error fetching dist countries:', error));
-        } else {
-            setDestCountries(countries);
-        }
-        setIsLoading(false);
-    }, [selectedSet]);
+        const fetchData = async () => {
+            if (selectedSet) {
+                setIsLoading(true);
+                try {
+                    setDestCountries([]);
+                    const data = await fetchCountries(selectedSet);
+                    setDestCountries(data);
+                } catch (error) {
+                    console.error('Error fetching dist countries:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            } else {
+                setDestCountries(countries);
+            }
+        };
+        fetchData();
+    }, [selectedSet, countries]);
 
     // Fetch cities when country is selected
     useEffect(() => {
         setSelectedCity('');
         setCities([]);
-        setIsLoading(true);
-        if (selectedCountry) {
-            fetchCities(selectedCountry)
-                .then(data => setCities(data))
-                .catch(error => console.error('Error fetching cities:', error));
-        }
-        setIsLoading(false);
+        const fetchData = async () => {
+            if (selectedCountry) {
+                setIsLoading(true);
+                try {
+                    const data = await fetchCities(selectedCountry);
+                    setCities(data);
+                } catch (error) {
+                    console.error('Error fetching cities:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+        fetchData();
     }, [selectedCountry]);
 
     // Fetch ASNs when city is selected
     useEffect(() => {
         setSelectedAsns([]);
         setAsns([]);
-        setIsLoading(true);
-        if (selectedCountry && selectedCity) {
-            fetchAsns(selectedCountry, selectedCity)
-                .then(data => setAsns(data))
-                .catch(error => console.error('Error fetching ASNs:', error));
-        }
-        setIsLoading(false);
+        const fetchData = async () => {
+            if (selectedCountry && selectedCity) {
+                setIsLoading(true);
+                try {
+                    const data = await fetchAsns(selectedCountry, selectedCity);
+                    setAsns(data);
+                } catch (error) {
+                    console.error('Error fetching ASNs:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+        fetchData();
     }, [selectedCountry, selectedCity]);
 
     // Similar effects for destination selection
     useEffect(() => {
         setSelectedDestCity('');
         setDestCities([]);
-        setIsLoading(true);
-        if (selectedDestCountry) {
-            fetchCities(selectedDestCountry, selectedSet)
-                .then(data => setDestCities(data))
-                .catch(error => console.error('Error fetching destination cities:', error));
-        }
-        setIsLoading(false);
-    }, [selectedDestCountry]);
+        const fetchData = async () => {
+            if (selectedDestCountry) {
+                setIsLoading(true);
+                try {
+                    const data = await fetchCities(selectedDestCountry, selectedSet);
+                    setDestCities(data);
+                } catch (error) {
+                    console.error('Error fetching destination cities:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+        fetchData();
+    }, [selectedDestCountry, selectedSet]);
 
+    // Filter destAsns based on selected ASN types
+    useEffect(() => {
+        if (allDestAsns.length > 0) {
+            const filteredAsns = allDestAsns.filter(asn => selectedAsnTypes.includes(asn.asnType));
+            setDestAsns(filteredAsns);
+            setSelectedDestAsns([]); // Reset selected ASNs when filter changes
+        }
+    }, [allDestAsns, selectedAsnTypes]);
+
+    // Fetch destination ASNs
     useEffect(() => {
         setSelectedDestAsns([]);
+        setAllDestAsns([]); // Reset all ASNs
         setDestAsns([]);
-        setIsLoading(true);
-        if (selectedDestCountry && selectedDestCity) {
-            fetchAsns(selectedDestCountry, selectedDestCity, selectedSet)
-                .then(data => setDestAsns(data))
-                .catch(error => console.error('Error fetching destination ASNs:', error));
-        }
-        setIsLoading(false);
-    }, [selectedDestCountry, selectedDestCity]);
+        const fetchData = async () => {
+            if (selectedDestCountry && selectedDestCity) {
+                setIsLoading(true);
+                try {
+                    const data = await fetchAsns(selectedDestCountry, selectedDestCity, selectedSet);
+                    setAllDestAsns(data);
+                } catch (error) {
+                    console.error('Error fetching destination ASNs:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+        fetchData();
+    }, [selectedDestCountry, selectedDestCity, selectedSet]);
 
     const handleSearch = async () => {
         // Clear existing performance data first and set loading state
@@ -240,7 +295,6 @@ export default function NetworkSearch() {
                 fetchPerformanceData(srcCityIds, destCityIds, true)
             ]);
             const compData = { ...data, rawData };
-            // data.rawData = rawData;
             setPerformanceData(compData);
         } catch (error) {
             console.error('Error fetching performance data:', error);
@@ -297,8 +351,15 @@ export default function NetworkSearch() {
                                     getOptionLabel={(option) => option.name}
                                     value={countries.find(c => c.code === selectedCountry) || null}
                                     onChange={(_, newValue) => setSelectedCountry(newValue?.code || '')}
+                                    loading={isLoading}
+                                    noOptionsText={getNoOptionsText()}
                                     renderInput={(params) => (
-                                        <TextField {...params} label="Country" fullWidth sx={{ mb: 2 }} />
+                                        <TextField
+                                            {...params}
+                                            label="Country"
+                                            fullWidth
+                                            sx={{ mb: 2 }}
+                                        />
                                     )}
                                 />
 
@@ -308,8 +369,15 @@ export default function NetworkSearch() {
                                     value={cities.find(c => c.id === selectedCity) || null}
                                     onChange={(_, newValue) => setSelectedCity(newValue?.id || '')}
                                     disabled={!selectedCountry}
+                                    loading={isLoading}
+                                    noOptionsText={getNoOptionsText()}
                                     renderInput={(params) => (
-                                        <TextField {...params} label="City" fullWidth sx={{ mb: 2 }} />
+                                        <TextField
+                                            {...params}
+                                            label="City"
+                                            fullWidth
+                                            sx={{ mb: 2 }}
+                                        />
                                     )}
                                 />
 
@@ -320,8 +388,14 @@ export default function NetworkSearch() {
                                     value={selectedAsns}
                                     onChange={(_, newValue) => setSelectedAsns(newValue)}
                                     disabled={!selectedCity}
+                                    loading={isLoading}
+                                    noOptionsText={getNoOptionsText()}
                                     renderInput={(params) => (
-                                        <TextField {...params} label="ASNs" fullWidth />
+                                        <TextField
+                                            {...params}
+                                            label="ASNs"
+                                            fullWidth
+                                        />
                                     )}
                                 />
                             </>
@@ -340,8 +414,15 @@ export default function NetworkSearch() {
                             getOptionLabel={(option) => option.name}
                             value={destCountries.find(c => c.code === selectedDestCountry) || null}
                             onChange={(_, newValue) => setSelectedDestCountry(newValue?.code || '')}
+                            loading={isLoading}
+                            noOptionsText={getNoOptionsText()}
                             renderInput={(params) => (
-                                <TextField {...params} label="Country" fullWidth sx={{ mb: 2 }} />
+                                <TextField
+                                    {...params}
+                                    label="Country"
+                                    fullWidth
+                                    sx={{ mb: 2 }}
+                                />
                             )}
                         />
 
@@ -351,10 +432,53 @@ export default function NetworkSearch() {
                             value={destCities.find(c => c.id === selectedDestCity) || null}
                             onChange={(_, newValue) => setSelectedDestCity(newValue?.id || '')}
                             disabled={!selectedDestCountry}
+                            loading={isLoading}
+                            noOptionsText={getNoOptionsText()}
                             renderInput={(params) => (
-                                <TextField {...params} label="City" fullWidth sx={{ mb: 2 }} />
+                                <TextField
+                                    {...params}
+                                    label="City"
+                                    fullWidth
+                                    sx={{ mb: 2 }}
+                                />
                             )}
                         />
+
+                        <Grid container spacing={0} sx={{ mb: 2 }} direction="row">
+                            <Grid item xs={12} sx={{ mb: 1 }}>
+                                <Typography variant="subtitle2">
+                                    ASN Type Filter
+                                </Typography>
+                            </Grid>
+                            {['isp', 'hosting', 'business', 'government', 'education'].map((type) => (
+                                <Grid item key={type}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={selectedAsnTypes.includes(type)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedAsnTypes([...selectedAsnTypes, type]);
+                                                    } else {
+                                                        setSelectedAsnTypes(selectedAsnTypes.filter(t => t !== type));
+                                                    }
+                                                }}
+                                                size="small"
+                                            />
+                                        }
+                                        label={type.charAt(0).toUpperCase() + type.slice(1)}
+                                        sx={{
+                                            margin: 0,
+                                            '& .MuiFormControlLabel-label': {
+                                                fontSize: '0.875rem',
+                                                marginLeft: '4px',
+                                                marginRight: '8px'
+                                            }
+                                        }}
+                                    />
+                                </Grid>
+                            ))}
+                        </Grid>
 
                         <Autocomplete
                             multiple
@@ -363,8 +487,14 @@ export default function NetworkSearch() {
                             value={selectedDestAsns}
                             onChange={(_, newValue) => setSelectedDestAsns(newValue)}
                             disabled={!selectedDestCity}
+                            loading={isLoading}
+                            noOptionsText={getNoOptionsText()}
                             renderInput={(params) => (
-                                <TextField {...params} label="ASNs" fullWidth />
+                                <TextField
+                                    {...params}
+                                    label="ASNs"
+                                    fullWidth
+                                />
                             )}
                         />
                     </Paper>
@@ -580,7 +710,7 @@ export default function NetworkSearch() {
                             <Paper sx={{ p: 2 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                                     <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                                        Latency Data Collection Time
+                                        Latency Data Collection Time (last {performanceData.rawData.length} records)
                                     </Typography>
                                     <FormControl sx={{ minWidth: 120 }}>
                                         <InputLabel>Metric</InputLabel>
@@ -913,3 +1043,4 @@ export default function NetworkSearch() {
         </Container>
     );
 }
+

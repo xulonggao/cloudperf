@@ -42,7 +42,8 @@ def webapi_performance(requests):
 
     if 'rawData' in requests['query']:
         # 由于 alb 调用 Lambda 有 1MB 限制，所以把数据进行了拆分，原始数据和延迟数据分别给出
-        rawData = data_layer.get_latency_rawdata_cross_city(src, dist)
+        # 1000 条记录大概 330KB 2000条记录大概 670KB
+        rawData = data_layer.get_latency_rawdata_cross_city(src, dist, 2000)
         if rawData == None:
             return {'statusCode': 400, 'result': 'param src and dist invalid!'}
         outdata = []
