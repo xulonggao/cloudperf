@@ -311,6 +311,18 @@ a.type as asnType,a.ipcounts as ipcounts,
 INET_NTOA(i.start_ip) as startIp, INET_NTOA(i.end_ip) as endIp from city as c, asn as a,iprange as i
  where c.id = i.city_id and c.asn=a.asn and ''' + filter + f' limit {limit}', obj)
 
+def get_asns_by_country(country_code, cityset:int = 0):
+    if cityset != 0:
+        # FIND_IN_SET(src_city_id, (SELECT cityids FROM cityset WHERE id = %s)) 无法使用索引，所以先查出cityids再用in
+        rows = cache_mysql_select('SELECT cityids FROM cityset WHERE id = %s', (cityset,))
+        if rows and len(rows) > 0:
+            cityids = rows[0]['cityids']
+            return get_cityobject('''c.country_code = %s and c.id in
+(
+    select dist_city_id from statistics where src_city_id in (%s) group by dist_city_id
+) group by c.id,c.asn''',(country_code,cityids)) #这里加了 ,c.asn 为了把多条cidr记录合并
+    return get_cityobject("c.country_code = %s group by c.id,c.asn",(country_code,city_name,))
+
 def get_asns_by_country_city(country_code, city_name, cityset:int = 0):
     if cityset != 0:
         # FIND_IN_SET(src_city_id, (SELECT cityids FROM cityset WHERE id = %s)) 无法使用索引，所以先查出cityids再用in

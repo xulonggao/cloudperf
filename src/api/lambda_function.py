@@ -201,6 +201,8 @@ def webapi_asn(requests):
     if 'country' in requests['query'] and len(requests['query']['country']) >= 2:
         if 'city' in requests['query'] and len(requests['query']['city']) >= 2:
             asns = data_layer.get_asns_by_country_city(requests['query']['country'], unquote_plus(requests['query']['city']), cityset)
+        else:
+            asns = data_layer.get_asns_by_country(requests['query']['country'], cityset)
     return {
         'statusCode': 200,
         'result': asns
@@ -224,6 +226,7 @@ def webapi_city(requests):
         cityset = int(requests['query']['cityset'])
     if 'country' in requests['query'] and len(requests['query']['country']) >= 2:
         result = data_layer.get_citys_by_country_code(requests['query']['country'], cityset)
+    result.insert(0, {"id": "A", "name": "(All)", "latitude": 0.0, "longitude": 0.0})
     return {
         'statusCode': 200,
         'result': result
