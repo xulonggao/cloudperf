@@ -407,6 +407,15 @@ latency_p50,latency_p70,latency_p90,latency_p95)
 VALUES(%(src_city_id)s,%(dist_city_id)s,%(samples)s,%(latency_min)s,%(latency_max)s,%(latency_avg)s,
 %(latency_p50)s,%(latency_p70)s,%(latency_p90)s,%(latency_p95)s)''',datas)
 
+def delete_oldest_statistics_data(src_city_id, dist_city_id, limit = settings.MAX_RECORDS_PER_CITYID):
+    return mysql_execute('''DELETE FROM `statistics`
+WHERE (src_city_id = %s AND dist_city_id = %s) 
+AND update_time NOT IN (
+    SELECT update_time FROM (
+        SELECT update_time FROM `statistics` WHERE src_city_id = %s AND dist_city_id = %s
+        ORDER BY update_time DESC LIMIT %s) t
+);''', (src_city_id, dist_city_id, src_city_id, dist_city_id, limit))
+
 def friendly_intval(sec:int):
     if sec > 86400:
         msg = f"{int(sec / 86400)} days ago"

@@ -406,6 +406,7 @@ def fping_logic(requests):
                         'latency_p95': int(data_layer.np_percentile(sorted_data, 95) * 1000), #np.percentile(arr, 95),
                     }
                     data_layer.update_statistics_data(datas)
+                    data_layer.delete_oldest_statistics_data(city_id, jobid)
     if requests['useragent'].startswith('fping-pingable'):
         ttl = data_layer.update_client_status(requests['srcip'], 'ping')
         # need pause

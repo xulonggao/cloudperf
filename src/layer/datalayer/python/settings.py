@@ -20,6 +20,9 @@ CACHEKEY_USERAUTH = 'user'
 # 用于暂停客户端任务，value为重试时间，如3600秒
 CACHEKEY_PAUSE = 'pause'
 
+# 每个cityid对保存的最新记录条数，默认7条
+MAX_RECORDS_PER_CITYID = 7
+
 DB_READ_HOST='rds-r.cloudperf.vpc'
 DB_WRITE_HOST='rds.cloudperf.vpc'
 DB_PORT=3306

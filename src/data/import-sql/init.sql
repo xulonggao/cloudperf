@@ -53,11 +53,8 @@ CREATE TABLE IF NOT EXISTS `pingable` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT '可ping ip列表';
 
 CREATE TABLE IF NOT EXISTS `statistics` (
-    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT 'id',
     `src_city_id` INT UNSIGNED NOT NULL COMMENT '源侧',
     `dist_city_id` INT UNSIGNED NOT NULL COMMENT '目标侧',
-    #`country_code` varchar(2) NOT NULL COMMENT '源国家代码，该字段冗余，用于加速',
-    #`asn` INT UNSIGNED NOT NULL COMMENT 'ASN号码，该字段冗余，用于加速',
     `samples` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '样本数',
     `latency_min` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '最小延时us',
     `latency_max` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '最大延时us',
@@ -69,8 +66,6 @@ CREATE TABLE IF NOT EXISTS `statistics` (
     `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY `src_city_id` (`src_city_id`),
     KEY `dist_city_id` (`dist_city_id`),
-    #KEY `country_code` (`country_code`),
-    #KEY `asn` (`asn`),
     KEY `update_time` (`update_time`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT '统计数据';
 
