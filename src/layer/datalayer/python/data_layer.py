@@ -119,7 +119,7 @@ def mysql_batch_execute(sql: str):
             sql = sql.strip()
             if sql:  # 忽略空语句
                 cursor.execute(sql)
-                if sql.lower().startswith("select") or sql.lower().startswith("with"):
+                if sql.lower().startswith("select") or sql.lower().startswith("with") or sql.lower().startswith("explain"):
                     # 查询语句
                     rows = cursor.fetchall()
                     if rows:
@@ -276,22 +276,28 @@ def cache_mysql_select(sql:str, obj = None, fetchObject = True, ttl:int = settin
 
 def get_countrys(cityset:int = 0):
     if cityset != 0:
-        return cache_mysql_select('''select code,name from country where code in
+        # FIND_IN_SET(src_city_id, (SELECT cityids FROM cityset WHERE id = %s)) 无法使用索引，所以先查出cityids再用in
+        rows = cache_mysql_select('SELECT cityids FROM cityset WHERE id = %s', (cityset,))
+        if rows and len(rows) > 0:
+            cityids = rows[0]['cityids']
+            return cache_mysql_select('''select code,name from country where code in
 (
     select country_code from city where id in (
-        select dist_city_id from statistics where FIND_IN_SET(src_city_id,
-        (SELECT cityids FROM cityset WHERE id = %s))
+        select dist_city_id from statistics where src_city_id in (%s) group by dist_city_id
     ) group by country_code
-)''', (cityset,))
+)''', (cityids,))
     return cache_mysql_select('select code,name from country order by code', ttl=settings.CACHE_LONG_TTL)
 
 def get_citys_by_country_code(country_code, cityset:int = 0):
     if cityset != 0:
-        return cache_mysql_select('''SELECT name as id,name,latitude,longitude FROM city WHERE country_code = %s and id in
+        # FIND_IN_SET(src_city_id, (SELECT cityids FROM cityset WHERE id = %s)) 无法使用索引，所以先查出cityids再用in
+        rows = cache_mysql_select('SELECT cityids FROM cityset WHERE id = %s', (cityset,))
+        if rows and len(rows) > 0:
+            cityids = rows[0]['cityids']
+            return cache_mysql_select('''SELECT name as id,name,latitude,longitude FROM city WHERE country_code = %s and id in
 (
-    select dist_city_id from statistics where FIND_IN_SET(src_city_id,
-    (SELECT cityids FROM cityset WHERE id = %s))
-) group by name''', (country_code,cityset))
+    select dist_city_id from statistics where src_city_id in (%s) group by dist_city_id
+) group by name''', (country_code,cityids))
     return cache_mysql_select(
         'SELECT name as id,name,latitude,longitude FROM city WHERE country_code = %s group by name', (country_code,))
 
@@ -307,11 +313,14 @@ INET_NTOA(i.start_ip) as startIp, INET_NTOA(i.end_ip) as endIp from city as c, a
 
 def get_asns_by_country_city(country_code, city_name, cityset:int = 0):
     if cityset != 0:
-        return get_cityobject('''c.country_code = %s and c.name = %s and c.id in
+        # FIND_IN_SET(src_city_id, (SELECT cityids FROM cityset WHERE id = %s)) 无法使用索引，所以先查出cityids再用in
+        rows = cache_mysql_select('SELECT cityids FROM cityset WHERE id = %s', (cityset,))
+        if rows and len(rows) > 0:
+            cityids = rows[0]['cityids']
+            return get_cityobject('''c.country_code = %s and c.name = %s and c.id in
 (
-    select dist_city_id from statistics where FIND_IN_SET(src_city_id,
-    (SELECT cityids FROM cityset WHERE id = %s))
-) group by c.id,c.asn''',(country_code,city_name,cityset)) #这里加了 ,c.asn 为了把多条cidr记录合并
+    select dist_city_id from statistics where src_city_id in (%s) group by dist_city_id
+) group by c.id,c.asn''',(country_code,city_name,cityids)) #这里加了 ,c.asn 为了把多条cidr记录合并
     return get_cityobject("c.country_code = %s and c.name = %s group by c.id,c.asn",(country_code,city_name,))
 
 def get_cityobject_by_ip(ip:str):
