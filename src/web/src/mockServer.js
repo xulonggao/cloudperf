@@ -23,12 +23,62 @@ const mockCities = {
 const mockAsns = {
     "US": {
         "New York": [
-            { asn: "AS7922", asnName: "Comcast", cityId: "US-NYC-7922" },
-            { asn: "AS3356", asnName: "Level 3", cityId: "US-NYC-3356" }
+            {
+                asn: "AS7922", asnName: "Comcast", cityId: "US-NYC-7922", name: "New York",
+                asnType: "isp", latitude: 40.7128, longitude: -74.006, domain: "comcast.net", ipcounts: 12345, country: "US", region: "New York", startIp: "123.2.3.4", endIp: "12.3.4.5"
+            },
+            {
+                asn: "AS3356", asnName: "Level 3", cityId: "US-NYC-3356", name: "New York",
+                asnType: "hosting", latitude: 40.7128, longitude: -74.006, domain: "level3.net", ipcounts: 12345, country: "US", region: "New York", startIp: "123.2.3.4", endIp: "12.3.4.5"
+            },
+            {
+                asn: "AS13", asnName: "FedNet", cityId: "US-NYC-13", name: "New York",
+                asnType: "government", latitude: 40.7128, longitude: -74.006, domain: "fednet.gov", ipcounts: 5000, country: "US", region: "New York", startIp: "123.2.3.4", endIp: "12.3.4.5"
+            }
         ],
         "San Francisco": [
-            { asn: "AS16509", asnName: "Amazon", cityId: "US-SFO-16509" },
-            { asn: "AS15169", asnName: "Google", cityId: "US-SFO-15169" }
+            {
+                asn: "AS16509", asnName: "Amazon AWS", cityId: "US-SFO-16509", name: "San Francisco",
+                asnType: "hosting", latitude: 37.7749, longitude: -122.4194, domain: "aws.amazon.com", ipcounts: 12345, country: "US", region: "San Francisco", startIp: "123.2.3.4", endIp: "12.3.4.5"
+            },
+            {
+                asn: "AS15169", asnName: "Google Cloud", cityId: "US-SFO-15169", name: "San Francisco",
+                asnType: "hosting", latitude: 37.7749, longitude: -122.4194, domain: "cloud.google.com", ipcounts: 12345, country: "US", region: "San Francisco", startIp: "123.2.3.4", endIp: "12.3.4.5"
+            },
+            {
+                asn: "AS11", asnName: "Stanford University", cityId: "US-SFO-11", name: "San Francisco",
+                asnType: "education", latitude: 37.7749, longitude: -122.4194, domain: "stanford.edu", ipcounts: 8000, country: "US", region: "San Francisco", startIp: "123.2.3.4", endIp: "12.3.4.5"
+            }
+        ]
+    },
+    "CN": {
+        "Shanghai": [
+            {
+                asn: "AS4134", asnName: "China Unicom", cityId: "CN-SHA-4134", name: "Shanghai",
+                asnType: "isp", latitude: 31.2304, longitude: 121.4737, domain: "unicom.com", ipcounts: 12345, country: "CN", region: "Shanghai", startIp: "000000000", endIp: "00000000"
+            },
+            {
+                asn: "AS4809", asnName: "China Telecom", cityId: "CN-SHA-4809", name: "Shanghai",
+                asnType: "isp", latitude: 31.2304, longitude: 121.4737, domain: "chinatelecom.com", ipcounts: 12345, country: "CN", region: "Shanghai", startIp: "000000000", endIp: "00000000"
+            },
+            {
+                asn: "AS4538", asnName: "China Education Network", cityId: "CN-SHA-4538", name: "Shanghai",
+                asnType: "education", latitude: 31.2304, longitude: 121.4737, domain: "edu.cn", ipcounts: 5000, country: "CN", region: "Shanghai", startIp: "000000000", endIp: "00000000"
+            }
+        ],
+        "Beijing": [
+            {
+                asn: "AS4847", asnName: "CNIX", cityId: "CN-BEI-4847", name: "Beijing",
+                asnType: "business", latitude: 39.9042, longitude: 116.4074, domain: "cnix.cn", ipcounts: 12345, country: "CN", region: "Beijing", startIp: "000000000", endIp: "00000000"
+            },
+            {
+                asn: "AS4808", asnName: "China Mobile", cityId: "CN-BEI-4808", name: "Beijing",
+                asnType: "isp", latitude: 39.9042, longitude: 116.4074, domain: "chinamobile.com", ipcounts: 12345, country: "CN", region: "Beijing", startIp: "000000000", endIp: "00000000"
+            },
+            {
+                asn: "AS7497", asnName: "Computer Network Center Chinese Academy of Sciences", cityId: "CN-BEI-7497", name: "Beijing",
+                asnType: "government", latitude: 39.9042, longitude: 116.4074, domain: "cas.cn", ipcounts: 3000, country: "CN", region: "Beijing", startIp: "000000000", endIp: "00000000"
+            }
         ]
     }
 };
@@ -85,7 +135,7 @@ export function startMockServer() {
             this.post("/login", (schema, request) => {
                 const { username, password } = JSON.parse(request.requestBody);
                 if (username === "admin" && password === "admin") {
-                    return { token: "mock-jwt-token" };
+                    return { token: "mock-jwt-token", user: "admin", auth: 7, expire: 86400 }
                 }
                 return new Response(401, {}, { error: "Invalid credentials" });
             });
@@ -186,6 +236,7 @@ export function startMockServer() {
             this.get("/performance", (schema, request) => {
                 const src = request.queryParams.src?.split(',') || [];
                 const dist = request.queryParams.dist?.split(',') || [];
+                const wantRawData = request.queryParams.rawData === '1';
 
                 // Generate location data for each cityId
                 const sourceLocations = src.map(cityId => ({
@@ -202,6 +253,7 @@ export function startMockServer() {
                     longitude: -74.0060 + Math.random() * 10
                 }));
 
+                // Generate latency data for each source-destination pair
                 // Generate latency data for each source-destination pair
                 const latencyData = sourceLocations.flatMap(source =>
                     destLocations.map(dest => ({
@@ -223,9 +275,106 @@ export function startMockServer() {
                     }))
                 );
 
+                // Generate raw data for time series
+                const now = Math.floor(Date.now() / 1000);
+                const rawData = sourceLocations.flatMap(source =>
+                    destLocations.map(dest => {
+                        const samples = Math.floor(Math.random() * 800 + 200); // 200-1000 samples
+                        return Array.from({ length: 10 }, (_, i) => ({
+                            sC: source.cityId,
+                            sA: source.asn,
+                            sIP: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+                            dC: dest.cityId,
+                            dA: dest.asn,
+                            dIP: `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+                            sm: samples,
+                            min: Math.floor(Math.random() * 100 + 20),
+                            max: Math.floor(Math.random() * 100 + 20),
+                            avg: Math.floor(Math.random() * 100 + 20),
+                            p50: Math.floor(Math.random() * 100 + 20),
+                            p70: Math.floor(Math.random() * 100 + 20),
+                            p90: Math.floor(Math.random() * 100 + 20),
+                            p95: Math.floor(Math.random() * 100 + 20),
+                            ti: now - i * 3600 // One data point per hour going backwards
+                        }));
+                    })
+                ).flat();
+
+                // Calculate aggregate metrics from rawData
+                const sm = rawData.reduce((sum, d) => sum + d.sm, 0);
+                const min = Math.min(...rawData.map(d => d.min));
+                const max = Math.max(...rawData.map(d => d.max));
+                const avg = Math.round(rawData.reduce((sum, d) => sum + d.avg, 0) / rawData.length);
+                const p50 = Math.round(rawData.reduce((sum, d) => sum + d.p50, 0) / rawData.length);
+                const p70 = Math.round(rawData.reduce((sum, d) => sum + d.p70, 0) / rawData.length);
+                const p90 = Math.round(rawData.reduce((sum, d) => sum + d.p90, 0) / rawData.length);
+                const p95 = Math.round(rawData.reduce((sum, d) => sum + d.p95, 0) / rawData.length);
+
+                // If rawData is requested, return just the raw data array
+                if (wantRawData) {
+                    return rawData;
+                }
+
                 return {
-                    ...mockPerformanceData,
-                    latencyData
+                    sm,
+                    srcCityIds: sourceLocations.length,
+                    distCityIds: destLocations.length,
+                    min,
+                    max,
+                    avg,
+                    p50,
+                    p70,
+                    p90,
+                    p95,
+                    latencyData,
+                    asnData: [
+                        ...sourceLocations.map(src => ({
+                            asn: src.asn,
+                            isS: true,
+                            min: Math.floor(Math.random() * 100 + 20),
+                            max: Math.floor(Math.random() * 100 + 20),
+                            avg: Math.floor(Math.random() * 100 + 20),
+                            p50: Math.floor(Math.random() * 100 + 20),
+                            p70: Math.floor(Math.random() * 100 + 20),
+                            p90: Math.floor(Math.random() * 100 + 20),
+                            p95: Math.floor(Math.random() * 100 + 20)
+                        })),
+                        ...destLocations.map(dest => ({
+                            asn: dest.asn,
+                            isS: false,
+                            min: Math.floor(Math.random() * 100 + 20),
+                            max: Math.floor(Math.random() * 100 + 20),
+                            avg: Math.floor(Math.random() * 100 + 20),
+                            p50: Math.floor(Math.random() * 100 + 20),
+                            p70: Math.floor(Math.random() * 100 + 20),
+                            p90: Math.floor(Math.random() * 100 + 20),
+                            p95: Math.floor(Math.random() * 100 + 20)
+                        }))
+                    ],
+                    cityData: [
+                        ...sourceLocations.map(src => ({
+                            city: src.cityId,
+                            isS: true,
+                            min: Math.floor(Math.random() * 100 + 20),
+                            max: Math.floor(Math.random() * 100 + 20),
+                            avg: Math.floor(Math.random() * 100 + 20),
+                            p50: Math.floor(Math.random() * 100 + 20),
+                            p70: Math.floor(Math.random() * 100 + 20),
+                            p90: Math.floor(Math.random() * 100 + 20),
+                            p95: Math.floor(Math.random() * 100 + 20)
+                        })),
+                        ...destLocations.map(dest => ({
+                            city: dest.cityId,
+                            isS: false,
+                            min: Math.floor(Math.random() * 100 + 20),
+                            max: Math.floor(Math.random() * 100 + 20),
+                            avg: Math.floor(Math.random() * 100 + 20),
+                            p50: Math.floor(Math.random() * 100 + 20),
+                            p70: Math.floor(Math.random() * 100 + 20),
+                            p90: Math.floor(Math.random() * 100 + 20),
+                            p95: Math.floor(Math.random() * 100 + 20)
+                        }))
+                    ]
                 };
             });
 
