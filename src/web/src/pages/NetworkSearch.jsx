@@ -42,7 +42,8 @@ import {
     Tooltip,
     ResponsiveContainer,
     Legend,
-    Cell
+    Cell,
+    ReferenceLine
 } from 'recharts';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -326,7 +327,7 @@ export default function NetworkSearch() {
                 <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 2 }}>
                         <Typography variant="h6" gutterBottom>
-                            Source Selection
+                            Server Location (Source) Selection
                         </Typography>
                         <FormControl fullWidth sx={{ mb: 2 }}>
                             <InputLabel>City Set</InputLabel>
@@ -407,7 +408,7 @@ export default function NetworkSearch() {
                 <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 2 }}>
                         <Typography variant="h6" gutterBottom>
-                            Destination Selection
+                            User Distribution (Destination) Selection
                         </Typography>
                         <Autocomplete
                             options={destCountries}
@@ -636,6 +637,13 @@ export default function NetworkSearch() {
                                 <ResponsiveContainer width="100%" height={400}>
                                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid />
+                                        <ReferenceLine
+                                            segment={[{ x: 0, y: 0 }, { x: 20000, y: 400 }]}
+                                            stroke="#0000ff"
+                                            strokeDasharray="3 3"
+                                            label={{ value: 'Latency Reference Line (50km+1ms)', position: 'insideBottomLeft' }}
+                                            ifOverflow="hidden"
+                                        />
                                         <XAxis
                                             type="number"
                                             dataKey="dist"
@@ -1043,4 +1051,3 @@ export default function NetworkSearch() {
         </Container>
     );
 }
-
