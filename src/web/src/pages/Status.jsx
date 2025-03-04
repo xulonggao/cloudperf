@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { fetchCountStats, fetchStatusStats, fetchClientStats } from '../services/api';
 import { Box, Paper, Typography, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import StorageIcon from '@mui/icons-material/Storage';
 import LocationCityIcon from '@mui/icons-material/LocationCity';
@@ -57,6 +58,9 @@ const StatCard = ({ title, value, icon: Icon }) => (
 export default function Status() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [lastUpdateTime, setLastUpdateTime] = useState('');
+    const [isCountStatsLoading, setIsCountStatsLoading] = useState(false);
+    const [isStatusStatsLoading, setIsStatusStatsLoading] = useState(false);
+    const [isClientStatsLoading, setIsClientStatsLoading] = useState(false);
     const [stats, setStats] = useState({
         allasn: 0,
         allcity: 0,
@@ -70,31 +74,100 @@ export default function Status() {
         'data-clients': []
     });
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            setIsRefreshing(true);
-            try {
-                const response = await fetch('/api/statistics');
-                if (response.ok) {
-                    const data = await response.json();
-                    setStats(data);
-                    setLastUpdateTime(new Date().toLocaleTimeString());
-                }
-            } catch (error) {
-                console.error('Error fetching statistics:', error);
+    const fetchAllStats = useCallback(() => {
+        let completedRequests = 0;
+        let activeRequests = 0;
+        setIsRefreshing(true);
+
+        // Update the last update time when the first data arrives
+        const updateTime = () => {
+            if (completedRequests === 1) {
+                setLastUpdateTime(new Date().toLocaleTimeString());
             }
-            setIsRefreshing(false);
+
+            // Only set isRefreshing to false when all active requests complete
+            completedRequests++;
+            if (completedRequests === activeRequests) {
+                setIsRefreshing(false);
+            }
         };
 
+        // Fetch count statistics if not already loading
+        if (!isCountStatsLoading) {
+            activeRequests++;
+            setIsCountStatsLoading(true);
+            fetchCountStats()
+                .then(data => {
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        ...data
+                    }));
+                    updateTime();
+                    setIsCountStatsLoading(false);
+                })
+                .catch(error => {
+                    console.error('Error fetching count statistics:', error);
+                    updateTime();
+                    setIsCountStatsLoading(false);
+                });
+        }
+
+        // Fetch status statistics if not already loading
+        if (!isStatusStatsLoading) {
+            activeRequests++;
+            setIsStatusStatsLoading(true);
+            fetchStatusStats()
+                .then(data => {
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        ...data
+                    }));
+                    updateTime();
+                    setIsStatusStatsLoading(false);
+                })
+                .catch(error => {
+                    console.error('Error fetching status statistics:', error);
+                    updateTime();
+                    setIsStatusStatsLoading(false);
+                });
+        }
+
+        // Fetch client information if not already loading
+        if (!isClientStatsLoading) {
+            activeRequests++;
+            setIsClientStatsLoading(true);
+            fetchClientStats()
+                .then(data => {
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        ...data
+                    }));
+                    updateTime();
+                    setIsClientStatsLoading(false);
+                })
+                .catch(error => {
+                    console.error('Error fetching client information:', error);
+                    updateTime();
+                    setIsClientStatsLoading(false);
+                });
+        }
+
+        // If no requests were initiated, set isRefreshing to false
+        if (activeRequests === 0) {
+            setIsRefreshing(false);
+        }
+    }, []);
+
+    useEffect(() => {
         // Initial fetch
-        fetchStats();
+        fetchAllStats();
 
         // Set up interval for periodic fetching
-        const interval = setInterval(fetchStats, 30000);
+        const interval = setInterval(fetchAllStats, 30000);
 
         // Cleanup interval on component unmount
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchAllStats]);
 
     return (
         <Box>
@@ -103,13 +176,16 @@ export default function Status() {
                     <Typography variant="h4">
                         System Status
                     </Typography>
+                    <Typography>
+                        {lastUpdateTime}
+                    </Typography>
                     {isRefreshing ? (
                         <Typography sx={{ color: 'red' }}>
                             refreshing...
                         </Typography>
                     ) : (
-                        <Typography>
-                            {lastUpdateTime}
+                        <Typography sx={{ color: 'green' }}>
+                            updated
                         </Typography>
                     )}
                 </Box>

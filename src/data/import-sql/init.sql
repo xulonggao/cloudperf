@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS `statistics` (
     `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
     KEY `src_city_id` (`src_city_id`),
     KEY `dist_city_id` (`dist_city_id`),
-    KEY `update_time` (`update_time`)
+    KEY `update_time` (`update_time`),
+    INDEX `idx_src_dist_city` (`src_city_id`, `dist_city_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT '统计数据';
 
 CREATE TABLE IF NOT EXISTS `cityset` (

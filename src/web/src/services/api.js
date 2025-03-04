@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-const TIMEOUT_MS = 30000; // 30 second timeout
+const TIMEOUT_MS = 300000; // 5 mins timeout
 
 const fetchWithTimeout = async (url, options = {}) => {
     const controller = new AbortController();
@@ -54,6 +54,36 @@ export const fetchDashboardStats = async () => {
         return handleJsonResponse(response);
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
+        throw error;
+    }
+};
+
+export const fetchCountStats = async () => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/statistics?query=counts`);
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error fetching count statistics:', error);
+        throw error;
+    }
+};
+
+export const fetchStatusStats = async () => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/statistics?query=status`);
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error fetching status statistics:', error);
+        throw error;
+    }
+};
+
+export const fetchClientStats = async () => {
+    try {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/statistics?query=clients`);
+        return handleJsonResponse(response);
+    } catch (error) {
+        console.error('Error fetching client statistics:', error);
         throw error;
     }
 };

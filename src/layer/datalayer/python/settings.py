@@ -20,8 +20,17 @@ CACHEKEY_USERAUTH = 'user'
 # 用于暂停客户端任务，value为重试时间，如3600秒
 CACHEKEY_PAUSE = 'pause'
 
-# 每个cityid对保存的最新记录条数，默认7条
+# 每个cityid对保存的最新记录条数，默认7次
 MAX_RECORDS_PER_CITYID = 7
+
+# 可ping ip的存活时间，只用最近4次就可以了
+STABLE_PINGABLE_IP = '15' # 1111b
+NEW_PINGABLE_IP = '8' # 1000b
+LOSS_PINGABLE_IP = '7' # 0111b
+DELETE_PINGABLE_IP = '0' # 00000000b
+#STABLE_PINGABLE_IP = '240' # 11110000b
+#NEW_PINGABLE_IP = '128' # 10000000b
+#LOSS_PINGABLE_IP = '127' # 01111111b
 
 DB_READ_HOST='rds-r.cloudperf.vpc'
 DB_WRITE_HOST='rds.cloudperf.vpc'

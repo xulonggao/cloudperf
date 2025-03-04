@@ -17,7 +17,16 @@ def webapi_status(requests):
     }
 
 def webapi_statistics(requests):
-    data = data_layer.query_statistics_data()
+    query = ''
+    if 'query' in requests['query']:
+        querykey = requests['query']['query']
+        if querykey == 'counts':
+            query = 'cityid-ping,cityid-pair'
+        elif querykey == 'status':
+            query = 'all-country,all-city,all-asn,cityid-all,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue'
+        elif querykey == 'clients':
+            query = 'ping-clients,data-clients'
+    data = data_layer.query_statistics_data(query)
     return {
         'statusCode': 200,
         'result': data

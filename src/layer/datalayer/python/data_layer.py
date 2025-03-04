@@ -412,7 +412,7 @@ def update_pingable_result(city_id, start_ip, end_ip):
     # 通过 start_ip end_ip city_id 来更新对应 pingable 表的数据，更新 lastresult 右移1位高位为0，表示这个ip最新数据没有更新了
     mysql_execute('update pingable set lastresult=lastresult>>1 where city_id=%s and ip>=%s and ip<=%s', (city_id, start_ip, end_ip))
     # 检查 pingable 表，删除 lastresult 全为 0 的条目，因为该ip已经连续不可ping了（就算新的任务他又可ping了，重新插入就是）
-    mysql_execute('delete from pingable where lastresult=0')
+    mysql_execute('delete from pingable where lastresult=' + settings.DELETE_PINGABLE_IP)
     # 更新 lastcheck_time 时间，避免马上再次检查
     mysql_execute('update iprange set lastcheck_time = CURRENT_TIMESTAMP where city_id=%s and start_ip=%s', (city_id, start_ip))
 
@@ -420,7 +420,7 @@ def update_pingable_ip(city_id, ips):
     for ip in ips:
         ipno = ipaddress.IPv4Address(ip)._ip
         # 128 = 10000000b
-        mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, 128) ON DUPLICATE KEY UPDATE lastresult=lastresult|128', (ipno, city_id))
+        mysql_execute('INSERT INTO `pingable`(`ip`,`city_id`,`lastresult`) VALUES(%s, %s, ' + settings.NEW_PINGABLE_IP + ') ON DUPLICATE KEY UPDATE lastresult=lastresult|' + settings.NEW_PINGABLE_IP, (ipno, city_id))
 
 def update_statistics_data(datas):
     return mysql_execute('''INSERT INTO `statistics`(src_city_id,dist_city_id,samples,latency_min,latency_max,latency_avg,
@@ -492,23 +492,25 @@ def friendly_cityasn(city):
 # 稳定可ping数量，新增可ping数量，最近不可ping数量
 # 可用cidr数量，过期cidr数量，cidr队列长度
 # 已知cityid数量，可ping的cityid数量，有数据的cityid pair数量
-def query_statistics_data(datas = 'all-country,all-city,all-asn,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue,cityid-all,cityid-ping,cityid-pair,ping-clients,data-clients'):
+def query_statistics_data(datas = ''):
+    if datas == '':
+        datas = 'all-country,all-city,all-asn,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue,cityid-all,cityid-ping,cityid-pair,ping-clients,data-clients'
     supports = {
         'all-country':'select count(1) from country',
         'all-city':'select count(1) from (select country_code,name from city group by country_code,name) as a',
         'all-asn':'select count(1) from asn',
-        # 240 = 11110000
-        'ping-stable':'select count(1) from pingable where lastresult>=240',
-        'ping-new':'select count(1) from pingable where lastresult>=128',
-        'ping-loss':'select count(1) from pingable where lastresult<=127',
+        'ping-stable':'select count(1) from pingable where lastresult>=' + settings.STABLE_PINGABLE_IP,
+        'ping-new':'select count(1) from pingable where lastresult>=' + settings.NEW_PINGABLE_IP,
+        'ping-loss':'select count(1) from pingable where lastresult<=' + settings.LOSS_PINGABLE_IP,
 
         'cidr-ready':'select count(1) from iprange where lastcheck_time >= date_sub(now(), interval 14 day)',
         'cidr-outdated':'select count(1) from iprange where lastcheck_time < date_sub(now(), interval 14 day)',
         'cidr-queue':'',
 
         'cityid-all':'select count(1) from city',
-        'cityid-ping':'select count(1) from (select city_id from pingable where lastresult>0 group by city_id) as a',
-        'cityid-pair':'select count(1) from (select src_city_id,dist_city_id from statistics group by src_city_id,dist_city_id) as a'
+        'cityid-ping':'select count(distinct city_id) from pingable where lastresult>' + settings.DELETE_PINGABLE_IP,
+        'cityid-pair':'select count(distinct src_city_id, dist_city_id) from statistics',
+        # 'select count(1) from (select 1 from statistics group by src_city_id, dist_city_id) as a'
     }
     outs = {}
     for data in datas.split(','):
@@ -702,7 +704,7 @@ def get_pingjob_by_cityid(src_city_id:int):
             last_city_id = data
     # 如果没有数据了，从数据库中查询，然后缓存到redis中
     if return_city_id == 0:
-        sql = 'SELECT city_id FROM pingable where city_id>%s and lastresult>=128 GROUP BY city_id limit 50'
+        sql = 'SELECT city_id FROM pingable where city_id>%s and lastresult>=' + settings.NEW_PINGABLE_IP + ' GROUP BY city_id limit 50'
         ipdatas = mysql_select(sql, (last_city_id,))
         if ipdatas == None or len(ipdatas) == 0:
             # 如果没有数据了，从头开始查询
@@ -722,7 +724,7 @@ def get_pingjob_by_cityid(src_city_id:int):
     if return_city_id == 0:
         return None
     # 查找该city_id的可用ip列表
-    iplists = mysql_select('SELECT ip FROM pingable where city_id=%s and lastresult>=128 order by RAND() LIMIT 100;', (return_city_id,), False)
+    iplists = mysql_select('SELECT ip FROM pingable where city_id=%s and lastresult>=' + settings.NEW_PINGABLE_IP + ' order by RAND() LIMIT 100;', (return_city_id,), False)
     if iplists == None or len(iplists) == 0:
         return None
     return {
