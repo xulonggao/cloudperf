@@ -638,7 +638,7 @@ export default function NetworkSearch() {
                                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                         <CartesianGrid />
                                         <ReferenceLine
-                                            segment={[{ x: 0, y: 0 }, { x: 20000, y: 400 }]}
+                                            segment={[{ x: 0, y: 5 }, { x: 20000, y: 405 }]}
                                             stroke="#0000ff"
                                             strokeDasharray="3 3"
                                             label={{ value: 'Latency Reference Line (50km+1ms)', position: 'insideBottomLeft' }}
@@ -674,8 +674,8 @@ export default function NetworkSearch() {
                                                             <p>{`Destination: ${data.dC} ${data.dA}`}</p>
                                                             <p>{`Samples: ${data.sm}`}</p>
                                                             <p>{`Distance: ${Math.round(data.dist)} km\u00A0\u00A0${selectedMetric.toUpperCase()}: ${data[selectedMetric]}ms`}</p>
-                                                            <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
-                                                            <p>{`p50/p70/p90/p95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
+                                                            <p>{`Min/Avg/Max: ${data.min} / ${data.avg} / ${data.max} ms`}</p>
+                                                            <p>{`p50/p70/p90/p95: ${data.p50} / ${data.p70} / ${data.p90} / ${data.p95} ms`}</p>
                                                         </div>
                                                     );
                                                 }
@@ -777,8 +777,8 @@ export default function NetworkSearch() {
                                                                 hour: '2-digit', minute: '2-digit',
                                                                 hour12: false
                                                             })}\u00A0\u00A0Samples: ${data.sm}\u00A0\u00A0${selectedMetric.toUpperCase()}: ${data[selectedMetric]}ms`}</p>
-                                                            <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
-                                                            <p>{`P50/P70/P90/P95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
+                                                            <p>{`Min/Avg/Max: ${data.min} / ${data.avg} / ${data.max} ms`}</p>
+                                                            <p>{`P50/P70/P90/P95: ${data.p50} / ${data.p70} / ${data.p90} / ${data.p95} ms`}</p>
                                                         </div>
                                                     );
                                                 }
@@ -857,8 +857,8 @@ export default function NetworkSearch() {
                                                 return (
                                                     <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
                                                         <p>{`${data.isS ? 'Src' : 'Dest'} ASN: ${data.asn}`}</p>
-                                                        <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
-                                                        <p>{`P50/P70/P90/P95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
+                                                        <p>{`Min/Avg/Max: ${data.min} / ${data.avg} / ${data.max} ms`}</p>
+                                                        <p>{`P50/P70/P90/P95: ${data.p50} / ${data.p70} / ${data.p90} / ${data.p95} ms`}</p>
                                                     </div>
                                                 );
                                             }
@@ -917,8 +917,8 @@ export default function NetworkSearch() {
                                                 return (
                                                     <div style={{ backgroundColor: 'white', padding: '10px', border: '1px solid #ccc' }}>
                                                         <p>{`${data.isS ? 'Src' : 'Dest'} City: ${data.city}`}</p>
-                                                        <p>{`Min/Avg/Max: ${data.min}/${data.avg}/${data.max} ms`}</p>
-                                                        <p>{`P50/P70/P90/P95: ${data.p50}/${data.p70}/${data.p90}/${data.p95} ms`}</p>
+                                                        <p>{`Min/Avg/Max: ${data.min} / ${data.avg} / ${data.max} ms`}</p>
+                                                        <p>{`P50/P70/P90/P95: ${data.p50} / ${data.p70} / ${data.p90} / ${data.p95} ms`}</p>
                                                     </div>
                                                 );
                                             }
@@ -994,8 +994,8 @@ export default function NetworkSearch() {
                                                 <Popup>
                                                     Src: {data.sC} ({data.sA})<br />
                                                     Dest: {data.dC} ({data.dA})<br />
-                                                    Min/Avg/Max: {data.min}/{data.avg}/{data.max}<br />
-                                                    P50/P70/P90/P95: {data.p50}/{data.p70}/{data.p90}/{data.p95}
+                                                    Min/Avg/Max: {data.min} / {data.avg} / {data.max}<br />
+                                                    P50/P70/P90/P95: {data.p50} / {data.p70} / {data.p90} / {data.p95}
                                                 </Popup>
                                             </Polyline>
                                         ))}

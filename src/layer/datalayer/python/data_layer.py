@@ -321,7 +321,7 @@ def get_asns_by_country(country_code, cityset:int = 0):
 (
     select dist_city_id from statistics where src_city_id in (%s) group by dist_city_id
 ) group by c.id,c.asn''',(country_code,cityids)) #这里加了 ,c.asn 为了把多条cidr记录合并
-    return get_cityobject("c.country_code = %s group by c.id,c.asn",(country_code,city_name,))
+    return get_cityobject("c.country_code = %s group by c.id,c.asn",(country_code,))
 
 def get_asns_by_country_city(country_code, city_name, cityset:int = 0):
     if cityset != 0:
@@ -468,6 +468,8 @@ def friendly_cityname(city):
                 'New South Wales':'Sydney', 'Bangkok':'Thailand', 'Quebec':'Canada', 'Alberta':'Calgary',
                 'Leinster':'Ireland', 'England':'London', 'Lombardy':'Milan', 'Île-de-France':'Paris',
                 'Aragon':'Spain', 'Southern Governorate':'Bahrain', 'Dubai':'UAE',
+                # localzone
+                'Illinois':'Chicago',
             }
             if city['region'] in region_mapping:
                 return region_mapping[city['region']]
