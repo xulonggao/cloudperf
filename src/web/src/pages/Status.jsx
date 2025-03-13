@@ -163,7 +163,7 @@ export default function Status() {
         fetchAllStats();
 
         // Set up interval for periodic fetching
-        const interval = setInterval(fetchAllStats, 30000);
+        const interval = setInterval(fetchAllStats, 60000);
 
         // Cleanup interval on component unmount
         return () => clearInterval(interval);

@@ -172,6 +172,31 @@ def webapi_performance(requests):
         'result': outdata
     }
 
+def webapi_install(requests):
+    content = ''
+    with open('install-linux.sh', 'r') as file:
+        content = file.read()
+    content = content.replace('my-fping-job.com', requests['host'])
+    if 'type' in requests['query'] and requests['query']['type'] != '':
+        content = content.replace('-fping-job', '-' + requests['query']['type'])
+    return {
+        'statusCode': 200,
+        'content-type': 'text/plain; charset=utf-8',
+        'result': content
+    }
+
+def webapi_uninstall(requests):
+    content = ''
+    with open('uninstall-linux.sh', 'r') as file:
+        content = file.read()
+    if 'type' in requests['query'] and requests['query']['type'] != '':
+        content = content.replace('-fping-job', '-' + requests['query']['type'])
+    return {
+        'statusCode': 200,
+        'content-type': 'text/plain; charset=utf-8',
+        'result': content
+    }
+
 # {username: "admin", password: "admin"}
 def webapi_login(requests):
     data = json.loads(requests['body'])
@@ -483,6 +508,7 @@ def lambda_handler(event, context):
                 'version': 'apigw-httpapi2.0',
                 'srcip': event['requestContext']['http']['sourceIp'],
                 'useragent': event['requestContext']['http']['userAgent'],
+                'host': event['requestContext']['domainName'],
                 'method': event['requestContext']['http']['method'],
                 'body': event['body'] if 'body' in event else null,
                 'path': event['requestContext']['http']['path'],
@@ -494,6 +520,7 @@ def lambda_handler(event, context):
                 'version': 'apigw-httpapi1.0',
                 'srcip': event['requestContext']['identity']['sourceIp'],
                 'useragent': event['requestContext']['identity']['userAgent'],
+                'host': event['requestContext']['domainName'],
                 'method': event['requestContext']['httpMethod'],
                 'body': event['body'],
                 'path': event['requestContext']['path'],
@@ -506,10 +533,12 @@ def lambda_handler(event, context):
         # {'requestContext': {'elb': {'targetGroupArn': 'arn:aws:elasticloadbalancing:us-east-1:675857233193:targetgroup/Cloudp-cloud-Y6ZDQYYVEO72/ba784127f812d2e6'}},
         # 'httpMethod': 'GET', 'path': '/', 'queryStringParameters': {}, 'headers': {'user-agent': 'ELB-HealthChecker/2.0'}, 
         # 'body': '', 'isBase64Encoded': False}
+        # https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html
         requests = {
             'version': 'alb',
             'srcip': event['headers']['x-forwarded-for'] if 'x-forwarded-for' in event['headers'] else '',
             'useragent': event['headers']['user-agent'],
+            'host': event['headers']['host'],
             'method': event['httpMethod'],
             'body': event['body'],
             'path': event['path'],
@@ -520,6 +549,8 @@ def lambda_handler(event, context):
     apimapping = {
         '/job':[fping_logic, settings.AUTH_NOTNEED],
         '/api/login': [webapi_login, settings.AUTH_NOTNEED],
+        '/api/install': [webapi_install, settings.AUTH_NOTNEED],
+        '/api/uninstall': [webapi_uninstall, settings.AUTH_NOTNEED],
 
         '/api/ipinfo': [webapi_ipinfo, settings.AUTH_BASEUSER],
         '/api/asninfo': [webapi_asninfo, settings.AUTH_BASEUSER],
@@ -551,17 +582,14 @@ def lambda_handler(event, context):
             ret = route[0](requests)
     #ret['result']['debug'] = event;
     #ret['result']['requests'] = requests;
-    if requests['version'] == 'apigw-httpapi2.0':
-        return {
-            'statusCode': ret['statusCode'],
-            'body': json.dumps(ret['result'])
-        }
+    content_type = 'application/json' if 'content-type' not in ret else ret['content-type']
+    body = json.dumps(ret['result']) if content_type == 'application/json' else ret['result']
     return {
         'statusCode': ret['statusCode'],
         "headers": {
-            "Content-Type": "application/json"
+            "Content-Type": content_type,
         },
-        'body': json.dumps(ret['result'])
+        'body': body
     }
 
 # local test
