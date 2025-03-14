@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VERSION="3.12"
-# 这些库都是x86和arm通用的
+# 需要分别在 x86_64 和 arm64 机器上运行docker，得到两个库
 PYTHON_LIB="PyMysql redis requests"
 ARCHS="x86_64 arm64"
 

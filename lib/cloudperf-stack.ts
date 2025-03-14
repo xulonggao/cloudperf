@@ -8,20 +8,23 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-//import * as events from 'aws-cdk-lib/aws-events';
-//import * as events_targets from 'aws-cdk-lib/aws-events-targets';
-//import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as cr from 'aws-cdk-lib/custom-resources';
-//import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53targets from 'aws-cdk-lib/aws-route53-targets';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 
 const stackPrefix = 'cloudperf-';
 const cidr = '10.0.0.0/16';
 
+interface CloudperfStackProps extends cdk.StackProps {
+  domainName?: string;
+  hostedZoneId?: string;
+}
+
 export class CloudperfStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: CloudperfStackProps) {
     super(scope, id, {
       ...props,
       env: {
@@ -106,26 +109,14 @@ export class CloudperfStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    // 创建 fping 任务
-    // const fpingQueue = new sqs.Queue(this, stackPrefix + 'fping', {
-    //  queueName: stackPrefix + 'fping',
-    //  visibilityTimeout: cdk.Duration.minutes(15 * 4),
-    //});
-
     // 创建 Lambda 工具层
-    // fping 带有可执行的fping命令
-    // const fpingLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-fping', {
-    //  code: lambda.Code.fromAsset('src/layer/fping-layer.zip'),
-    //  compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
-    //  license: 'Apache-2.0',
-    //  description: 'A layer for fping',
-    //});
     // pythonlib 包括 redis mysql 连接库等
     const pythonLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-pythonlib', {
-      code: lambda.Code.fromAsset('src/layer/pythonlib-layer.zip'),
+      code: lambda.Code.fromAsset('src/layer/pythonlib-layer-arm64.zip'),
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
       license: 'Apache-2.0',
       description: 'A layer for pythonlib',
+      compatibleArchitectures: [lambda.Architecture.ARM_64],
     });
     // data 层包括重用的数据访问函数等
     const dataLayer = new lambda.LayerVersion(this, stackPrefix + 'layer-data', {
@@ -133,6 +124,7 @@ export class CloudperfStack extends cdk.Stack {
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
       license: 'Apache-2.0',
       description: 'A layer for data',
+      compatibleArchitectures: [lambda.Architecture.X86_64, lambda.Architecture.ARM_64],
     });
 
     const environments = {
@@ -142,7 +134,6 @@ export class CloudperfStack extends cdk.Stack {
       DB_SECRET: db.secret?.secretArn || '',
       CACHE_HOST: 'redis.cloudperf.vpc', // cacheCluster.attrEndpointAddress,
       CACHE_PORT: cacheCluster.attrEndpointPort,
-      // FPING_QUEUE: fpingQueue.queueUrl,
     };
     const web_environments = {
       AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap',
@@ -163,6 +154,7 @@ export class CloudperfStack extends cdk.Stack {
       layers: [pythonLayer, dataLayer],
       environment: environments,
       securityGroups: [sg],
+      architecture: lambda.Architecture.ARM_64,
     });
 
     // 提供系统的维护操作，包括初始化数据库等
@@ -182,6 +174,7 @@ export class CloudperfStack extends cdk.Stack {
       ephemeralStorageSize: cdk.Size.gibibytes(8),
       environment: environments,
       securityGroups: [sg],
+      architecture: lambda.Architecture.ARM_64,
     });
 
     // 对外 api 服务
@@ -192,70 +185,27 @@ export class CloudperfStack extends cdk.Stack {
     });
     alb.logAccessLogs(logBucket, 'alb-logs');
 
-    // fping 任务队列
-    /*const lambdaRoleQueue = new iam.Role(this, 'role-queue', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-    });
-    const api_environments = {
-      ...environments,
-      API_URL: alb.loadBalancerDnsName
-    };
-    const fpingQueueLambda = new lambda.Function(this, 'fping-queue', {
-      runtime: lambda.Runtime.PYTHON_3_12,
-      code: lambda.Code.fromAsset('src/fping-queue'),
-      handler: 'lambda_function.lambda_handler',
-      role: lambdaRoleQueue,
-      timeout: cdk.Duration.minutes(15),
-      layers: [pythonLayer, fpingLayer],
-      environment: environments,
-    });
-    const eventSource = new lambdaEventSources.SqsEventSource(fpingQueue, {
-      batchSize: 1,
-      maxBatchingWindow: cdk.Duration.seconds(60),
-      maxConcurrency: 10
-    });
-    fpingQueueLambda.addEventSource(eventSource);*/
-
     // 对外 web 函数
     // https://github.com/awslabs/aws-lambda-web-adapter/tree/main/examples/nginx-zip
+    // https://github.com/awslabs/aws-lambda-web-adapter/blob/main/README.md
     const lambdaRoleWeb = new iam.Role(this, 'role-web', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     });
     const webLambda = new lambda.Function(this, 'web', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.X86_64,
+      architecture: lambda.Architecture.ARM_64,
       code: lambda.Code.fromAsset('src/web/lambda'),
       handler: 'bootstrap',
       role: lambdaRoleWeb,
       timeout: cdk.Duration.minutes(1),
       layers: [
         lambda.LayerVersion.fromLayerVersionArn(this, 'LambdaWebAdapter',
-          `arn:aws:lambda:${this.region}:753240598075:layer:LambdaAdapterLayerX86:23`),
+          `arn:aws:lambda:${this.region}:753240598075:layer:LambdaAdapterLayerArm64:24`),
         lambda.LayerVersion.fromLayerVersionArn(this, 'Nginx',
-          `arn:aws:lambda:${this.region}:753240598075:layer:Nginx123X86:12`),
+          `arn:aws:lambda:${this.region}:753240598075:layer:Nginx123Arm:12`),
       ],
       environment: web_environments,
     });
-
-    // 定时任务
-    /*const lambdaRoleCron = new iam.Role(this, 'role-cron', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-    });
-    const cronLambda = new lambda.Function(this, 'cron', {
-      runtime: lambda.Runtime.PYTHON_3_12,
-      code: lambda.Code.fromAsset('src/cron'),
-      handler: 'lambda_function.lambda_handler',
-      vpc: vpc,
-      vpcSubnets: { subnets: vpc.privateSubnets },
-      role: lambdaRoleCron,
-      timeout: cdk.Duration.minutes(15),
-      layers: [pythonLayer, dataLayer],
-      environment: environments,
-    });
-    const cronRule = new events.Rule(this, 'MinutelyCronRule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(1)), // events.Schedule.expression('cron(0/1 * * * ? *)'),
-    });
-    cronRule.addTarget(new events_targets.LambdaFunction(cronLambda));*/
 
     // 生成各模块Policy
     const secretsManagerPolicyStatement = new iam.PolicyStatement({
@@ -269,14 +219,6 @@ export class CloudperfStack extends cdk.Stack {
     const secretsManagerPolicy = new iam.Policy(this, stackPrefix + 'policy-SecretsManager', {
       statements: [secretsManagerPolicyStatement]
     })
-    /*const sqsPolicyStatement = new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes', 'sqs:SendMessage'],
-      resources: [fpingQueue.queueArn],
-    });
-    const sqsPolicy = new iam.Policy(this, stackPrefix + 'policy-Sqs', {
-      statements: [sqsPolicyStatement]
-    })*/
     // 各lambda赋予权限
     lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
     lambdaRoleApi.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
@@ -287,15 +229,7 @@ export class CloudperfStack extends cdk.Stack {
     lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3ReadOnlyAccess"));
     lambdaRoleAdmin.attachInlinePolicy(secretsManagerPolicy);
 
-    //lambdaRoleQueue.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
-    //lambdaRoleQueue.attachInlinePolicy(sqsPolicy);
-
     lambdaRoleWeb.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
-
-    /*lambdaRoleCron.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
-    lambdaRoleCron.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
-    lambdaRoleCron.attachInlinePolicy(secretsManagerPolicy);
-    lambdaRoleCron.attachInlinePolicy(sqsPolicy);*/
 
     // 数据处理流程
     const s3nadmin = new s3n.LambdaDestination(adminLambda);
@@ -332,33 +266,35 @@ export class CloudperfStack extends cdk.Stack {
       open: true
     });
 
-    listener.addTargets(stackPrefix + 'web-target', {
+    //alb 配置
+    const webTargetProps = {
       targets: [new targets.LambdaTarget(webLambda)],
       healthCheck: { enabled: false, path: '/' },
-    });
-
-    listener.addTargets(stackPrefix + 'api-target', {
+    };
+    const apiTargetProps = {
       targets: [new targets.LambdaTarget(apiLambda)],
       healthCheck: { enabled: false, path: '/' },
       priority: 10,
-      conditions: [
-        elbv2.ListenerCondition.pathPatterns(['/job*', '/api*'])
-      ]
-    });
-
-    // 根目录访问，只有带上参数 query=login，才允许通过
-    listener.addTargets(stackPrefix + 'frist-login', {
+      conditions: [elbv2.ListenerCondition.pathPatterns(['/job*', '/api*'])]
+    };
+    const rootTargetProps = {
       targets: [new targets.LambdaTarget(webLambda)],
       healthCheck: { enabled: false, path: '/' },
       priority: 20,
       conditions: [elbv2.ListenerCondition.queryStrings([{ key: 'query', value: 'login' }])]
-    });
-    // 阻止直接对外措施
-    listener.addAction(stackPrefix + 'disable-root', {
+    }
+    const disableRootProps = {
       priority: 21,
       conditions: [elbv2.ListenerCondition.pathPatterns(['/', '/index.html'])],
       action: elbv2.ListenerAction.fixedResponse(403, { contentType: 'text/plain', messageBody: 'Forbidden' })
-    });
+    }
+
+    listener.addTargets(stackPrefix + 'web-target', webTargetProps);
+    listener.addTargets(stackPrefix + 'api-target', apiTargetProps);
+    // 根目录访问，只有带上参数 query=login，才允许通过，加强安全性
+    listener.addTargets(stackPrefix + 'frist-login', rootTargetProps);
+    // 阻止直接访问根目录措施
+    listener.addAction(stackPrefix + 'disable-root', disableRootProps);
 
     const albLogDeliveryPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -367,6 +303,43 @@ export class CloudperfStack extends cdk.Stack {
       principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')]
     });
     logBucket.addToResourcePolicy(albLogDeliveryPolicy);
+
+    if (props.domainName && props.hostedZoneId) {
+      // 引用 Route 53 托管区域
+      const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, stackPrefix + 'HostedZone', {
+        hostedZoneId: props.hostedZoneId,
+        zoneName: props.domainName
+      });
+
+      // 创建 ACM 证书
+      const certificate = new acm.Certificate(this, stackPrefix + 'Certificate', {
+        domainName: props.domainName,
+        validation: acm.CertificateValidation.fromDns(hostedZone)
+      });
+
+      // 添加 HTTPS 监听器
+      const httpsListener = alb.addListener(stackPrefix + 'https-Listener', {
+        port: 443,
+        certificates: [certificate],
+        open: true,
+      });
+
+      httpsListener.addTargets(stackPrefix + 'web-target', webTargetProps);
+      httpsListener.addTargets(stackPrefix + 'api-target', apiTargetProps);
+      // 根目录访问，只有带上参数 query=login，才允许通过，加强安全性
+      httpsListener.addTargets(stackPrefix + 'frist-login', rootTargetProps);
+      // 阻止直接访问根目录措施
+      httpsListener.addAction(stackPrefix + 'disable-root', disableRootProps);
+
+      // 创建 DNS 记录
+      new route53.ARecord(this, stackPrefix + 'AliasRecord', {
+        zone: hostedZone,
+        recordName: props.domainName,
+        target: route53.RecordTarget.fromAlias(
+          new route53targets.LoadBalancerTarget(alb)
+        )
+      });
+    }
 
     // 内部域名映射
     const hostedZone = new route53.PrivateHostedZone(this, 'vpc', {
@@ -429,11 +402,6 @@ export class CloudperfStack extends cdk.Stack {
       description: 'Internal Security Group ID'
     });
 
-    //new cdk.CfnOutput(this, 'fpingQueue', {
-    //  value: fpingQueue.queueArn,
-    //  description: 'fping job queue'
-    //});
-
     new cdk.CfnOutput(this, 's3Bucket', {
       value: s3Bucket.bucketArn,
       description: 'data exchange'
@@ -444,5 +412,10 @@ export class CloudperfStack extends cdk.Stack {
       description: 'admin Lambda'
     });
 
+    if (props.domainName) {
+      new cdk.CfnOutput(this, 'customHost', {
+        value: `https://${props.domainName}/login`
+      });
+    }
   }
 }
