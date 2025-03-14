@@ -56,11 +56,7 @@ const StatCard = ({ title, value, icon: Icon }) => (
 );
 
 export default function Status() {
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const [lastUpdateTime, setLastUpdateTime] = useState('');
-    const [isCountStatsLoading, setIsCountStatsLoading] = useState(false);
-    const [isStatusStatsLoading, setIsStatusStatsLoading] = useState(false);
-    const [isClientStatsLoading, setIsClientStatsLoading] = useState(false);
     const [stats, setStats] = useState({
         allasn: 0,
         allcity: 0,
@@ -74,100 +70,112 @@ export default function Status() {
         'data-clients': []
     });
 
-    const fetchAllStats = useCallback(() => {
-        let completedRequests = 0;
-        let activeRequests = 0;
-        setIsRefreshing(true);
-
-        // Update the last update time when the first data arrives
-        const updateTime = () => {
-            if (completedRequests === 1) {
+    // Function to fetch count statistics
+    const fetchCountStatsData = useCallback(() => {
+        fetchCountStats()
+            .then(data => {
+                setStats(prevStats => ({
+                    ...prevStats,
+                    ...data
+                }));
                 setLastUpdateTime(new Date().toLocaleTimeString());
-            }
+            })
+            .catch(error => {
+                console.error('Error fetching count statistics:', error);
+            });
+    }, []);
 
-            // Only set isRefreshing to false when all active requests complete
-            completedRequests++;
-            if (completedRequests === activeRequests) {
-                setIsRefreshing(false);
-            }
-        };
+    // Function to fetch status statistics
+    const fetchStatusStatsData = useCallback(() => {
+        fetchStatusStats()
+            .then(data => {
+                setStats(prevStats => ({
+                    ...prevStats,
+                    ...data
+                }));
+                setLastUpdateTime(new Date().toLocaleTimeString());
+            })
+            .catch(error => {
+                console.error('Error fetching status statistics:', error);
+            });
+    }, []);
 
-        // Fetch count statistics if not already loading
-        if (!isCountStatsLoading) {
-            activeRequests++;
-            setIsCountStatsLoading(true);
-            fetchCountStats()
-                .then(data => {
-                    setStats(prevStats => ({
-                        ...prevStats,
-                        ...data
-                    }));
-                    updateTime();
-                    setIsCountStatsLoading(false);
-                })
-                .catch(error => {
-                    console.error('Error fetching count statistics:', error);
-                    updateTime();
-                    setIsCountStatsLoading(false);
-                });
-        }
-
-        // Fetch status statistics if not already loading
-        if (!isStatusStatsLoading) {
-            activeRequests++;
-            setIsStatusStatsLoading(true);
-            fetchStatusStats()
-                .then(data => {
-                    setStats(prevStats => ({
-                        ...prevStats,
-                        ...data
-                    }));
-                    updateTime();
-                    setIsStatusStatsLoading(false);
-                })
-                .catch(error => {
-                    console.error('Error fetching status statistics:', error);
-                    updateTime();
-                    setIsStatusStatsLoading(false);
-                });
-        }
-
-        // Fetch client information if not already loading
-        if (!isClientStatsLoading) {
-            activeRequests++;
-            setIsClientStatsLoading(true);
-            fetchClientStats()
-                .then(data => {
-                    setStats(prevStats => ({
-                        ...prevStats,
-                        ...data
-                    }));
-                    updateTime();
-                    setIsClientStatsLoading(false);
-                })
-                .catch(error => {
-                    console.error('Error fetching client information:', error);
-                    updateTime();
-                    setIsClientStatsLoading(false);
-                });
-        }
-
-        // If no requests were initiated, set isRefreshing to false
-        if (activeRequests === 0) {
-            setIsRefreshing(false);
-        }
+    // Function to fetch client statistics
+    const fetchClientStatsData = useCallback(() => {
+        fetchClientStats()
+            .then(data => {
+                setStats(prevStats => ({
+                    ...prevStats,
+                    ...data
+                }));
+                setLastUpdateTime(new Date().toLocaleTimeString());
+            })
+            .catch(error => {
+                console.error('Error fetching client information:', error);
+            });
     }, []);
 
     useEffect(() => {
-        // Initial fetch
-        fetchAllStats();
+        // Initial fetch for all stats
+        fetchCountStatsData();
+        fetchStatusStatsData();
+        fetchClientStatsData();
 
-        // Set up interval for periodic fetching
-        const interval = setInterval(fetchAllStats, 60000);
+        // Set up timers for each type of stats
+        let countStatsTimer = null;
+        let statusStatsTimer = null;
+        let clientStatsTimer = null;
 
-        // Cleanup interval on component unmount
-        return () => clearInterval(interval);
-    }, [fetchAllStats]);
+        // Function to schedule the next fetch after completion
+        const scheduleNextCountStatsFetch = () => {
+            countStatsTimer = setTimeout(fetchCountStatsData, 30000);
+        };
+
+        const scheduleNextStatusStatsFetch = () => {
+            statusStatsTimer = setTimeout(fetchStatusStatsData, 30000);
+        };
+
+        const scheduleNextClientStatsFetch = () => {
+            clientStatsTimer = setTimeout(fetchClientStatsData, 30000);
+        };
+
+        // Set up event listeners for fetch completion
+        const originalFetchCountStats = fetchCountStats;
+        window.fetchCountStats = async (...args) => {
+            const result = await originalFetchCountStats(...args);
+            scheduleNextCountStatsFetch();
+            return result;
+        };
+
+        const originalFetchStatusStats = fetchStatusStats;
+        window.fetchStatusStats = async (...args) => {
+            const result = await originalFetchStatusStats(...args);
+            scheduleNextStatusStatsFetch();
+            return result;
+        };
+
+        const originalFetchClientStats = fetchClientStats;
+        window.fetchClientStats = async (...args) => {
+            const result = await originalFetchClientStats(...args);
+            scheduleNextClientStatsFetch();
+            return result;
+        };
+
+        // Schedule initial timers
+        scheduleNextCountStatsFetch();
+        scheduleNextStatusStatsFetch();
+        scheduleNextClientStatsFetch();
+
+        // Cleanup timers and event listeners on component unmount
+        return () => {
+            clearTimeout(countStatsTimer);
+            clearTimeout(statusStatsTimer);
+            clearTimeout(clientStatsTimer);
+            window.fetchCountStats = originalFetchCountStats;
+            window.fetchStatusStats = originalFetchStatusStats;
+            window.fetchClientStats = originalFetchClientStats;
+        };
+    }, [fetchCountStatsData, fetchStatusStatsData, fetchClientStatsData]);
 
     return (
         <Box>
@@ -179,7 +187,7 @@ export default function Status() {
                     <Typography>
                         {lastUpdateTime}
                     </Typography>
-                    {isRefreshing ? (
+                    {lastUpdateTime == '' ? (
                         <Typography sx={{ color: 'red' }}>
                             refreshing...
                         </Typography>
