@@ -59,11 +59,11 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 
 ### 系统设置
 
-* 创建数据库
+* 创建数据库过程
 
-> 在cdk deploy时会创建数据库，使用CustomResource部署的，实质是使用参数 {"action": "exec_sql", "param": "init_db"} 调用 admin Lambda 完成。
+> 在cdk deploy时会自动创建数据库（Database），使用 CustomResource 部署的。实质是使用参数 {"action": "exec_sql", "param": "init_db"} 调用 admin Lambda 完成。
 >
-> 数据表是通过BucketDeployment上传 src/data/import-sql/init.sql 到 cloudperfstack-data 桶执行创建的，sql和zip文件上传到桶中后会自动触发 admin Lambda 执行。
+> 数据表（Table）是通过 BucketDeployment 上传 src/data/import-sql/init.sql 到 cloudperfstack-data 桶执行创建的，sql和zip文件上传到桶中后会自动触发 admin Lambda 执行。
 
 * 创建管理账号
 
@@ -84,9 +84,9 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 
 * 导入数据（如果有）
 
-导入数据的方法是把sql文件或打包的zip文件放到 cloudperfstack-data 开头的 s3 的 import-sql 目录中，程序会自动导入。
+导入数据的方法是把sql文件或打包的zip文件放到 cloudperfstack-data 开头的 s3 的 import-sql 目录中，程序会自动触发导入。
 
-由于导入 Lambda 函数有15分钟执行时间限制，因此如果导入数据太多，建议拆分sql文件再上传，参考以下代码：
+由于执行导入任务的 Lambda 函数有15分钟执行时间限制，因此如果导入数据太多，建议拆分sql文件再上传，参考以下代码：
 
 ```bash
 # 由于 lambda 15分钟执行时间限制，大概可以处理14万行Insert，因此建议大的sql文件进行最多10万行的切割，注意sql文件中每一行为一条完整的语句，避免切割后sql断开
@@ -98,9 +98,14 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 如果单条的SQL操作，可以直接在维护网页 /maintenance 中操作
 
 或在 lambda 控制台调用 admin Lambda，以下是测试事件参考：
+
+```bash
+# 执行s3 sql文件导入
 {"action": "exec_sqlfile", "param": "s3://my-bucket/sql/updates.zip"}
+# 直接执行sql
 {"action": "exec_sql", "param": "insert into xxx"}
 {"action": "exec_sql", "param": "select * from asn"}
+```
 
 也可以使用以下脚本执行：
 
@@ -122,10 +127,10 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 
 ```bash
 # 部署可用ip探测的客户端，集中部署即可，部署多个节点可以加速刷新可用ip列表
-./src/deploy_detector.sh aws ap-southeast-1 fping-pingable
+./src/deploy_detector.sh aws us-east-1 fping-pingable
 ```
 
-2. 采集端进行延迟数据测试、取样并上报，服务名字 fping-job：
+2. 采集端进行网络延时数据测试、取样并上报，服务名字 fping-job：
 
 ```bash
 # 部署探测节点，在需要监测网络质量的地方部署，如在aws的32个区域上部署：
@@ -139,21 +144,25 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 ./src/deploy_detector.sh ssh ec2-user@1.2.3.4
 ```
 
-部署客户端完成后，可以在网页 /status 页面上看到，由于aws region和城市名字不一样，状态页面看到的地区会和region不一样，可以自行进行修改。
+部署客户端完成后，建议获取对应公网ip，在 /ipsearch 页面中进行查询，看看是否有该段IP的映射。
+
+如果提示 not found，则证明该IP CIDR范围还没有录入，需要更新IP数据，或通过ec2停止-启动操作更换ip，直到ip解释正确。
+
+客户端正常运行后，可以在网页 /status 页面中看到更新状态，由于aws region和城市名字不一样，状态页面看到的地区会和region不一样，可以自行进行修改。
 
 ## 附录
 
 ### 高级设置
 
-在文件 src/layer/datalayer/python/settings.py 中，可以按实际业务情况选择进行测试：
+在文件 src/layer/datalayer/python/settings.py 中，可以按实际业务情况进行调整：
 
 ```bash
+# 每个cityid只保存最新的n次记录，默认7次；增加该值，数据更丰富，但是查询等待时间会越长
+MAX_RECORDS_PER_CITYID = 7
 # 常规缓存过期时间，如 SQL 语句的缓存
 CACHE_BASE_TTL=3600
 # 常规较长缓存过期时间
 CACHE_LONG_TTL=86400
-# 每个cityid只保存最新的n条记录，默认7次；增加该值，数据更丰富
-MAX_RECORDS_PER_CITYID = 7
 ```
 
 ### 客户端维护
