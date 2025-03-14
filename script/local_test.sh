@@ -16,11 +16,11 @@ DB_PASS=xxx
 if [ "$1" == "api" ]; then
     json='{"headers":{"x-forwarded-for":"127.0.0.1","user-agent":"cli"},"httpMethod":"'$3'","path":"'$4'","queryStringParameters":"'$5'","body":"'$6'"}'
     echo ${json}
-    DB_WRITE_HOST=${DB_WRITE_HOST} DB_READ_HOST=${DB_READ_HOST} DB_USER=${DB_USER} DB_PASS=${DB_PASS} PYTHONPATH=layer/datalayer/python/ \
-        python3 $1/lambda_function.py "${json}"
+    DB_WRITE_HOST=${DB_WRITE_HOST} DB_READ_HOST=${DB_READ_HOST} DB_USER=${DB_USER} DB_PASS=${DB_PASS} PYTHONPATH=../src/layer/datalayer/python/ \
+        python3 ../src/$1/lambda_function.py "${json}"
 else
     fn=$1
     shift
-    DB_WRITE_HOST=${DB_WRITE_HOST} DB_READ_HOST=${DB_READ_HOST} DB_USER=${DB_USER} DB_PASS=${DB_PASS} PYTHONPATH=layer/datalayer/python/ \
-        python3 ${fn}/lambda_function.py "$*"
+    DB_WRITE_HOST=${DB_WRITE_HOST} DB_READ_HOST=${DB_READ_HOST} DB_USER=${DB_USER} DB_PASS=${DB_PASS} PYTHONPATH=../src/layer/datalayer/python/ \
+        python3 ../src/${fn}/lambda_function.py "$*"
 fi

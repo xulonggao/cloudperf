@@ -235,7 +235,7 @@ export class CloudperfStack extends cdk.Stack {
     const s3nadmin = new s3n.LambdaDestination(adminLambda);
     s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.sql' });
     s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.zip' });
-    // 创建Custom Resource来调用Admin Lambda中的初始化
+    // 创建Custom Resource来调用Admin Lambda中的数据库初始化
     new cr.AwsCustomResource(this, 'InvokeLambda', {
       onCreate: {
         service: 'Lambda',
