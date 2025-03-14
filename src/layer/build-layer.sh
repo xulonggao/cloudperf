@@ -9,7 +9,7 @@ TMP_PATH=$(mktemp -d)
 
 for ARCH in ${ARCHS}; do
     mkdir ${TMP_PATH}/${ARCH}
-    docker run -v ${TMP_PATH}/${ARCH}:/var/task "public.ecr.aws/lambda/python:${VERSION}-${ARCH}" /bin/sh -c "pip install -t python/lib/python${VERSION}/site-packages/ ${PYTHON_LIB};rm -rf python/lib/python${VERSION}/site-packages/*dist-info; exit"
+    docker run -v ${TMP_PATH}/${ARCH}:/var/task "public.ecr.aws/sam/build-python${VERSION}:latest-${ARCH}" /bin/sh -c "pip install -t python/lib/python${VERSION}/site-packages/ ${PYTHON_LIB};rm -rf python/lib/python${VERSION}/site-packages/*dist-info; exit"
 
     (
         cd ${TMP_PATH}/${ARCH}
