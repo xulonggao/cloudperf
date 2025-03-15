@@ -59,6 +59,15 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 
 ### 系统设置
 
+* 进行数据库初始化
+
+```bash
+# 创建数据库
+./script/admin_exec.sh exec_sql init_db
+# 上传建表SQL，上传到 cloudperfstack-dataxxx-xxx 桶中的import-sql目录中的sql和zip文件会被自动执行
+./script/upload_sql.sh data/import-sql/init.sql
+```
+
 * 创建管理账号
 
 使用命令行脚本调用 admin Lambda 完成管理员账号的创建，用户名已存在则会重置密码。
@@ -68,6 +77,8 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 # 执行完成可以看到 账号: 密码
 # general password for myusername: xxxx
 ```
+
+至此，可以进行系统登录了，在 cdk 的输出里，找到 customHost 进行登录。
 
 * 修改账号密码
 
@@ -114,9 +125,14 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 
 ```bash
 ./script/admin_exec.sh mysql_dump "country,city,asn,iprange,cityset"
-# 执行完成可以看到生成的导出文件：
-# general password for myusername: xxxx
+# 执行完成可以看到sql文件已经导出到s3中，可以进行下载：
+# check file in s3://cloudperfstack-dataxxxx-xxxxx/export-sql/
+# 2025-03-15 16:55:49  114971605 2025-03-15-08-55-20.zip
 ```
+
+下载zip包，并上传到新系统的s3桶 import-sql 目录，程序会自动导入数据。
+
+pingable 和 statistics 数据太多且更新较快，不建议全量导出。
 
 * 配置采集端
 
@@ -259,9 +275,3 @@ npm install @mui/material @emotion/react @emotion/styled @mui/icons-material rea
 npm install axios
 npm install miragejs
 ```
-
-### 创建数据库过程
-
-在cdk deploy时会自动创建数据库（Database），使用 CustomResource 部署的。实质是使用参数 {"action": "exec_sql", "param": "init_db"} 调用 admin Lambda 完成。
-
-数据表（Table）是通过 BucketDeployment 上传 src/data/import-sql/init.sql 到 cloudperfstack-data 桶执行创建的，sql和zip文件上传到桶中后会自动触发 admin Lambda 执行。

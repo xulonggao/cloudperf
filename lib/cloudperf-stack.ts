@@ -236,30 +236,6 @@ export class CloudperfStack extends cdk.Stack {
     const s3nadmin = new s3n.LambdaDestination(adminLambda);
     s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.sql' });
     s3Bucket.addEventNotification(s3.EventType.OBJECT_CREATED, s3nadmin, { prefix: 'import-sql/', suffix: '.zip' });
-    // 创建Custom Resource来调用Admin Lambda中的数据库初始化
-    new cr.AwsCustomResource(this, 'InvokeLambda', {
-      onCreate: {
-        service: 'Lambda',
-        action: 'invoke',
-        parameters: {
-          FunctionName: adminLambda.functionName,
-          Payload: JSON.stringify({ 'action': 'exec_sql', 'param': 'init_db' }),
-        },
-        physicalResourceId: cr.PhysicalResourceId.of('InvokeLambda'),
-      },
-      policy: cr.AwsCustomResourcePolicy.fromStatements([
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ['lambda:InvokeFunction'],
-          resources: [adminLambda.functionArn],
-        }),
-      ]),
-    });
-    // 上传建表sql，会触发自动运行
-    new s3deploy.BucketDeployment(this, 'data', {
-      sources: [s3deploy.Source.asset('src/data')],
-      destinationBucket: s3Bucket,
-    });
 
     // alb 配置
     const listener = alb.addListener(stackPrefix + 'api-listener', {
@@ -416,6 +392,10 @@ export class CloudperfStack extends cdk.Stack {
     if (props.domainName) {
       new cdk.CfnOutput(this, 'customHost', {
         value: `https://${props.domainName}/login`
+      });
+    } else {
+      new cdk.CfnOutput(this, 'customHost', {
+        value: `http://${alb.loadBalancerDnsName}/login`
       });
     }
   }
