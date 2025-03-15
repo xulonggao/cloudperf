@@ -6,7 +6,7 @@
 # ./remove_detector.sh ssh ec2-user@1.2.3.4
 
 deploy_type=${1:-aws}
-deploy_location=${2:-}
+deploy_location=${2:-all}
 detector_type=${3:-fping-job}
 
 echo "start remove ${deploy_type} ${deploy_location} ${detector_type} ..."
@@ -16,7 +16,7 @@ if [ "${deploy_type}" == "aws" ]; then
     #arch="x86_64"
     instance_type="t4g.nano"
     arch="arm64"
-    if [ "${deploy_location}" == "" ]; then
+    if [ "${deploy_location}" == "all" ]; then
         deploy_location=$(aws ec2 describe-regions --query 'Regions[].RegionName' --output text)
     fi
     # 探测的机器，会最多固定使用10MB带宽和100K的包量，cpu 最高 30%，10任务并发，最小的机型就足够

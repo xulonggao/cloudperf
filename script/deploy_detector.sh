@@ -24,7 +24,7 @@ fi
 install_script_url="http://${alb_host}/api/install"
 
 deploy_type=${1:-aws}
-deploy_location=${2:-}
+deploy_location=${2:-all}
 detector_type=${3:-fping-job}
 
 echo "start deploy ${deploy_type} ${deploy_location} ${detector_type} ..."

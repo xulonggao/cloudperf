@@ -1,12 +1,12 @@
 #!/bin/bash
-# ./terminate_detector.sh
+# ./terminate_detector.sh all
 # ./terminate_detector.sh us-east-1
 # ./terminate_detector.sh us-east-1 fping-pingable
 
-deploy_location=${1:-}
+deploy_location=${1:-all}
 detector_type=${2:-fping-job}
 
-if [ "${deploy_location}" == "" ]; then
+if [ "${deploy_location}" == "all" ]; then
     deploy_location=$(aws ec2 describe-regions --query 'Regions[].RegionName' --output text)
 fi
 
