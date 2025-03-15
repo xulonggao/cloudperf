@@ -59,16 +59,16 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 
 ### 系统设置
 
-* 进行数据库初始化
+#### 进行数据库初始化
 
 ```bash
 # 创建数据库
 ./script/admin_exec.sh exec_sql init_db
 # 上传建表SQL，上传到 cloudperfstack-dataxxx-xxx 桶中的import-sql目录中的sql和zip文件会被自动执行
-./script/upload_sql.sh data/import-sql/init.sql
+./script/upload_sql.sh src/data/import-sql/init.sql
 ```
 
-* 创建管理账号
+#### 创建管理账号
 
 使用命令行脚本调用 admin Lambda 完成管理员账号的创建，用户名已存在则会重置密码。
 
@@ -80,11 +80,11 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 
 至此，可以进行系统登录了，在 cdk 的输出里，找到 customHost 进行登录。
 
-* 修改账号密码
+#### 修改账号密码
 
 通过上述账号密码登录系统后，点击右上方的 用户名，可以进行密码修改。
 
-* 导入数据（如果有）
+#### 导入数据（如果有）
 
 导入数据的方法是把sql文件或打包的zip文件放到 cloudperfstack-data 开头的 s3 的 import-sql 目录中，程序会自动触发导入。
 
@@ -134,7 +134,7 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 
 pingable 和 statistics 数据太多且更新较快，不建议全量导出。
 
-* 配置采集端
+#### 配置采集端
 
 主要有两种不同的采集端：
 
