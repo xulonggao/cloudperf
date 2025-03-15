@@ -134,6 +134,7 @@ export class CloudperfStack extends cdk.Stack {
       DB_SECRET: db.secret?.secretArn || '',
       CACHE_HOST: 'redis.cloudperf.vpc', // cacheCluster.attrEndpointAddress,
       CACHE_PORT: cacheCluster.attrEndpointPort,
+      S3_BUCKET: s3Bucket.bucketName,
     };
     const web_environments = {
       AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap',

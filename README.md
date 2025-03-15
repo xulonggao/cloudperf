@@ -14,7 +14,7 @@ CloudPerf是一个网络性能监控系统，提供跨多个地理位置的实�
 ## 部署
 
 ### 环境准备
-- Node.js >= 20.x
+- Node.js >= 22.x
 - [AWS CLI](https://docs.aws.amazon.com/zh_cn/cli/latest/userguide/getting-started-install.html) (并 [配置](https://docs.aws.amazon.com/zh_cn/cli/latest/userguide/cli-chap-configure.html) AWS 部署权限)
 - AWS CDK CLI (`npm install -g aws-cdk`)
 - Python 3.12 (非必须，运行本地脚本测试时使用)
@@ -27,8 +27,8 @@ CloudPerf是一个网络性能监控系统，提供跨多个地理位置的实�
 ```bash
 git clone https://github.com/tansoft/cloudperf.git
 cd cloudperf
+npm install
 cdk bootstrap
-npm run build
 cdk synth
 ```
 
@@ -59,24 +59,15 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 
 ### 系统设置
 
-* 创建数据库过程
-
-> 在cdk deploy时会自动创建数据库（Database），使用 CustomResource 部署的。实质是使用参数 {"action": "exec_sql", "param": "init_db"} 调用 admin Lambda 完成。
->
-> 数据表（Table）是通过 BucketDeployment 上传 src/data/import-sql/init.sql 到 cloudperfstack-data 桶执行创建的，sql和zip文件上传到桶中后会自动触发 admin Lambda 执行。
-
 * 创建管理账号
 
-可以使用命令行脚本调用 admin Lambda 完成管理员账号的创建，用户名已存在则重置密码。
+使用命令行脚本调用 admin Lambda 完成管理员账号的创建，用户名已存在则会重置密码。
 
 ```bash
-# 参数为用户名，不指定为admin
-./script/create_admin_user.sh myusername
+./script/admin_exec.sh create_user admin
 # 执行完成可以看到 账号: 密码
 # general password for myusername: xxxx
 ```
-
-也可以在Lambda控制台上，找到adminLambda，创建测试事件 {"action":"create_user","param":"myusername"} 来创建管理员账号，密码在输出日志中显示
 
 * 修改账号密码
 
@@ -110,13 +101,21 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 也可以使用以下脚本执行：
 
 ```bash
-./script/exec_sql.sh "select * from country limit 10"
+./script/admin_exec.sh exec_sql "select * from country limit 10"
 # 返回结果如下：
 # 列名: code | name | continent_code | continent_name | update_time
 # AD | Andorra | EU | Europe | 2025-01-04 03:46:39
 # AE | United Arab Emirates | AS | Asia | 2025-01-04 03:46:39
 # AF | Afghanistan | AS | Asia | 2025-01-04 03:46:40
 # AG | Antigua and Barbuda |  | North America | 2025-01-05 15:08:09
+```
+
+从现有系统中获取常用数据：
+
+```bash
+./script/admin_exec.sh mysql_dump "country,city,asn,iprange,cityset"
+# 执行完成可以看到生成的导出文件：
+# general password for myusername: xxxx
 ```
 
 * 配置采集端
@@ -127,7 +126,7 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 
 ```bash
 # 部署可用ip探测的客户端，集中部署即可，部署多个节点可以加速刷新可用ip列表
-./src/deploy_detector.sh aws us-east-1 fping-pingable
+./script/deploy_detector.sh aws us-east-1 fping-pingable
 ```
 
 2. 采集端进行网络延时数据测试、取样并上报，服务名字 fping-job：
@@ -135,13 +134,13 @@ for file in range_split_*; do mv "${file}" "${file}.sql" && zip "${file}.zip" "$
 ```bash
 # 部署探测节点，在需要监测网络质量的地方部署，如在aws的32个区域上部署：
 # 部署到单个地区
-./src/deploy_detector.sh aws ap-southeast-1
+./script/deploy_detector.sh aws ap-southeast-1
 # 部署到多个地区
-./src/deploy_detector.sh aws "ap-southeast-1 us-east-1"
+./script/deploy_detector.sh aws "ap-southeast-1 us-east-1"
 # 部署到所有region
-./src/deploy_detector.sh aws all
+./script/deploy_detector.sh aws all
 # 部署到普通服务器
-./src/deploy_detector.sh ssh ec2-user@1.2.3.4
+./script/deploy_detector.sh ssh ec2-user@1.2.3.4
 ```
 
 部署客户端完成后，建议获取对应公网ip，在 /ipsearch 页面中进行查询，看看是否有该段IP的映射。
@@ -180,7 +179,7 @@ CACHE_LONG_TTL=86400
 
 ```bash
 # 卸载 us-east-1 的 fping-pingable
-./remove_detector.sh aws us-east-1 fping-pingable
+./script/remove_detector.sh aws us-east-1 fping-pingable
 ```
 
 * 终止实例
@@ -251,11 +250,18 @@ cdk deploy
 
 ### web 前端构建
 
-提示词参考 [docs/MakeProject.md](docs/MakeProject.md)
+Web前端通过 Cline 使用 Claude 3.5 Sonnet V2 生成。提示词参考 [docs/MakeProject.md](docs/MakeProject.md)
 
 ```txt
+# 相关环境
 npm create vite@latest . -- --template react && npm install
 npm install @mui/material @emotion/react @emotion/styled @mui/icons-material react-router-dom recharts
 npm install axios
 npm install miragejs
 ```
+
+### 创建数据库过程
+
+在cdk deploy时会自动创建数据库（Database），使用 CustomResource 部署的。实质是使用参数 {"action": "exec_sql", "param": "init_db"} 调用 admin Lambda 完成。
+
+数据表（Table）是通过 BucketDeployment 上传 src/data/import-sql/init.sql 到 cloudperfstack-data 桶执行创建的，sql和zip文件上传到桶中后会自动触发 admin Lambda 执行。
