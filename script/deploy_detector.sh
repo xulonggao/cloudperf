@@ -15,7 +15,7 @@
 #  aws cli & configure
 #  curl
 
-alb_host=$(aws cloudformation describe-stacks --stack-name CloudperfStack --query 'Stacks[0].Outputs[?OutputKey==`adminLambda`].OutputValue' --output text --region us-east-1)
+alb_host=$(aws cloudformation describe-stacks --stack-name CloudperfStack --query 'Stacks[0].Outputs[?OutputKey==`albHost`].OutputValue' --output text --region us-east-1)
 if [ "${alb_host}"  == "" ]; then
     echo "can not get alb host from CloudperfStack"
     exit 1
