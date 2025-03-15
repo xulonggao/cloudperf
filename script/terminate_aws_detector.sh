@@ -19,8 +19,8 @@ for deploy_region in ${deploy_location}; do
     if [[ "$response" =~ ^[Yy]$ ]]; then
         echo "Terminate ${deploy_region} ${INSTANCE_IDS} ..."
 
-        aws ec2 terminate-instances --instance-ids ${INSTANCE_IDS}
-        aws ec2 wait instance-terminated --instance-ids ${INSTANCE_IDS}
+        aws ec2 terminate-instances --instance-ids ${INSTANCE_IDS} --region ${deploy_region}
+        aws ec2 wait instance-terminated --instance-ids ${INSTANCE_IDS} --region ${deploy_region}
     else
         echo "Canceled."
     fi
