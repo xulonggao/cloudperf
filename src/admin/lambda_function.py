@@ -1,10 +1,13 @@
 import json
 import os
 import io
+import sys
 import zipfile
+from zipfile import ZipFile
 import subprocess
 import tempfile
 import boto3
+from boto3.s3.transfer import TransferConfig
 from urllib.parse import urlparse
 import data_layer
 from datetime import datetime
@@ -12,131 +15,93 @@ import settings
 import secrets
 import string
 
-def mysql_restore(sqlfile):
-    # 设置环境变量，确保可以找到库文件
-    os.environ['LD_LIBRARY_PATH'] = os.path.join(os.environ['LAMBDA_TASK_ROOT'], 'lib')
-    try:
-        options = event.get('options', [])
-        # 记录开始时间
-        start_time = time.time()
-        print(f"Starting database restore from {sqlfile}")
-        # 设置环境变量以避免在命令行中显示密码
-        env = os.environ.copy()
-        env['MYSQL_PWD'] = db_password
-        # 构建 mysql 命令
-        mysql_path = os.path.join(os.environ['LAMBDA_TASK_ROOT'], 'bin', 'mysql')
-        cmd = [
-            mysql_path,
-            '-h', settings.DB_WRITE_HOST,
-            '-u', settings.DB_USER,
-            '-P', str(settings.DB_PORT),
-            '--default-character-set=utf8mb4',
-            settings.DB_DATABASE,
-        ]        
-        # 执行 mysql 命令
-        print(f"Executing mysql restore command: {' '.join(cmd)}")
-        process = subprocess.Popen(
-            cmd,
-            stdin=open(temp_file.name, 'r'),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env
-        )
-        stdout, stderr = process.communicate()
-        if process.returncode != 0:
-            error_msg = stderr.decode('utf-8')
-            print(f"MySQL restore failed: {error_msg}")
-            return {
-                'statusCode': 500,
-                'body': f'Database restore failed: {error_msg}'
-            }
-        # 计算执行时间
-        execution_time = time.time() - start_time
-        print(f"Database restore completed successfully in {execution_time:.2f} seconds")
-        return {
-            'statusCode': 200,
-            'body': f'Database successfully restored from {sqlfile}',
-            'executionTime': f'{execution_time:.2f} seconds'
-        }
-    except subprocess.SubprocessError as e:
-        print(f"Subprocess error: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': f'Error executing mysql command: {str(e)}'
-        }
-    except Exception as e:
-        print(f"Unexpected error: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': f'Unexpected error: {str(e)}'
-        }
+def mysql_dump_table_to_zipfile(table_name, zip_entry, batch_size=1000):
+    conn = data_layer.get_mysql_connect()
+    zip_entry.write(f'''
+-- MySQL dump by Python
+-- 创建时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+-- 服务器版本: {conn.get_server_info()}
+-- Python 版本: {sys.version}
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
+'''.encode('utf-8'))
+
+    cursor = conn.cursor()
+    cursor.execute(f"SHOW CREATE TABLE `{table_name}`".encode('utf-8'))
+    create_table = cursor.fetchone()[1]
+    zip_entry.write(f"\n--\n-- 表结构 `{table_name}`\n--\n\n".encode('utf-8'))
+    zip_entry.write(f"DROP TABLE IF EXISTS `{table_name}`;\n".encode('utf-8'))
+    zip_entry.write((create_table + ";\n\n").encode('utf-8'))
+
+    cursor.execute(f"SELECT * FROM `{table_name}`")
+    rows = cursor.fetchall()
+    if not rows:
+        return
+    zip_entry.write(f"\n--\n-- 表数据 `{table_name}`\n--\n\n".encode('utf-8'))
+    zip_entry.write("LOCK TABLES `{}` WRITE;\n".format(table_name).encode('utf-8'))
+    zip_entry.write("/*!40000 ALTER TABLE `{}` DISABLE KEYS */;\n".format(table_name).encode('utf-8'))
+
+    # 获取列名
+    cursor.execute(f"SHOW COLUMNS FROM `{table_name}`")
+    columns = [column[0] for column in cursor.fetchall()]
+    column_names = "`, `".join(columns)
+    
+    # 分批处理数据，避免生成过大的 INSERT 语句
+    total_rows = len(rows)
+    for i in range(0, total_rows, batch_size):
+        batch = rows[i:i + batch_size]
+        values_list = []
+        
+        for row in batch:
+            values = []
+            for value in row:
+                if value is None:
+                    values.append("NULL")
+                elif isinstance(value, (int, float)):
+                    values.append(str(value))
+                elif isinstance(value, bytes):
+                    values.append("_binary '{}'".format(value.hex()))
+                elif isinstance(value, datetime):
+                    values.append("'{}'".format(value.strftime('%Y-%m-%d %H:%M:%S')))
+                else:
+                    # 转义字符串中的特殊字符
+                    escaped_value = str(value).replace("'", "''").replace("\\", "\\\\")
+                    values.append("'{}'".format(escaped_value))
+            values_list.append("(" + ", ".join(values) + ")")
+        
+        if values_list:
+            zip_entry.write(f"INSERT INTO `{table_name}` (`{column_names}`) VALUES\n".encode('utf-8'))
+            zip_entry.write((",\n".join(values_list) + ";\n").encode('utf-8'))
+    
+    zip_entry.write("/*!40000 ALTER TABLE `{}` ENABLE KEYS */;\n".format(table_name).encode('utf-8'))
+    zip_entry.write("UNLOCK TABLES;\n".encode('utf-8'))
 
 def mysql_dump_table(s3_bucket, s3_key, dump_tables = []):
-    # 设置环境变量，确保可以找到库文件
-    os.environ['LD_LIBRARY_PATH'] = os.path.join(os.environ['LAMBDA_TASK_ROOT'], 'lib')
-    # 创建临时文件
-    with tempfile.NamedTemporaryFile(suffix='.sql') as temp_file:
-        # 设置环境变量以避免在命令行中显示密码
-        env = os.environ.copy()
-        env['MYSQL_PWD'] = settings.DB_PASS
-        # 构建 mysqldump 命令
-        mysqldump_path = os.path.join(os.environ['LAMBDA_TASK_ROOT'], 'bin', 'mysqldump')
-        cmd = [
-            mysqldump_path,
-            '-h', settings.DB_READ_HOST,
-            '-u', settings.DB_USER,
-            '-P', str(settings.DB_PORT),
-            '--single-transaction',
-            '--databases', settings.DB_DATABASE
-        ]
-        if len(dump_tables) > 0:
-            cmd.extend(dump_tables)
-        try:
-            dump_process = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        env=env
-                    )
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                with zipf.open('export.zip', 'w') as f:
-                    while True:
-                        chunk = dump_process.stdout.read(4096)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-
-            _, stderr = dump_process.communicate()
-            if dump_process.returncode != 0:
-                error_msg = stderr.decode('utf-8')
-                print(f"mysqldump failed: {error_msg}")
-                return {
-                    'statusCode': 500,
-                    'body': f'Database export failed: {error_msg}'
-                }
-            # 将缓冲区内容上传到 S3
-            zip_buffer.seek(0)
-            s3 = boto3.client('s3')
-            s3.upload_fileobj(zip_buffer, s3_bucket, s3_key)
-            return {
-                'statusCode': 200,
-                'body': f'Database {db_name} successfully exported to s3://{s3_bucket}/{s3_key}'
-            }
-        except subprocess.CalledProcessError as e:
-            return {
-                'statusCode': 500,
-                'body': f'Error executing mysqldump: {str(e)}'
-            }
-        except Exception as e:
-            return {
-                'statusCode': 500,
-                'body': f'Error: {str(e)}'
-            }
+    zip_buffer = io.BytesIO()
+    with ZipFile(zip_buffer, 'w') as zip_file:
+        for table in dump_tables:
+            with zip_file.open(table + '.sql', 'w') as zip_entry:
+                mysql_dump_table_to_zipfile(table, zip_entry)
+    # 将缓冲区内容上传到 S3
+    zip_buffer.seek(0)
+    s3 = boto3.client('s3')
+    config = TransferConfig(
+        multipart_threshold=1024 * 25,  # 25MB
+        max_concurrency=10,
+        multipart_chunksize=1024 * 25,  # 25MB
+        use_threads=True
+    )
+    s3.upload_fileobj(zip_buffer, s3_bucket, s3_key, Config=config)
+    return {
+        'statusCode': 200,
+        'body': f'successfully exported to s3://{s3_bucket}/{s3_key}'
+    }
 
 def mysql_dump(tables):
     timestr = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    return mysql_dump_table(settings.S3_BUCKET, f"export-sql/{timestr}-base.zip", tables.split(','))
+    return mysql_dump_table(settings.S3_BUCKET, f"export-sql/{timestr}.zip", tables.split(','))
 
 def download_from_s3(s3_path):
     """
@@ -205,10 +170,9 @@ def exec_sqlfile(sql_file):
                     print(f'exec_sql zipfile {file}')
                     if file.endswith('.sql'):
                         sql_path = os.path.join(root, file)
-                        mysql_restore(sql_path)
-                        # with open(sql_path, 'r') as f:
-                        #    sql_content = f.read()
-                        # data_layer.mysql_batch_execute(sql_content)
+                        with open(sql_path, 'r') as f:
+                            sql_content = f.read()
+                        data_layer.mysql_batch_execute(sql_content)
                         print(f'exec_sql zipfile {file} finish.')
                         results.append(f'Executed {file}')
             
@@ -222,10 +186,9 @@ def exec_sqlfile(sql_file):
         
         # Handle SQL files
         elif sql_file.endswith('.sql'):
-            mysql_restore(sql_file)
-            # with open(sql_file, 'r') as f:
-            #    sql_content = f.read()
-            # data_layer.mysql_batch_execute(sql_content)
+            with open(sql_file, 'r') as f:
+                sql_content = f.read()
+            data_layer.mysql_batch_execute(sql_content)
             print(f'exec_sql {sql_file} finish.')
             return {
                 'status': 200,

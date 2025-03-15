@@ -227,7 +227,7 @@ export class CloudperfStack extends cdk.Stack {
 
     lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
     lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaVPCAccessExecutionRole"));
-    lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3ReadOnlyAccess"));
+    lambdaRoleAdmin.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess"));
     lambdaRoleAdmin.attachInlinePolicy(secretsManagerPolicy);
 
     lambdaRoleWeb.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
@@ -404,7 +404,7 @@ export class CloudperfStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 's3Bucket', {
-      value: s3Bucket.bucketArn,
+      value: s3Bucket.bucketName,
       description: 'data exchange'
     });
 

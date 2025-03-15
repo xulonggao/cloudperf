@@ -119,7 +119,10 @@ def mysql_batch_execute(sql: str):
             sql = sql.strip()
             if sql:  # 忽略空语句
                 cursor.execute(sql)
-                if sql.lower().startswith("select") or sql.lower().startswith("with") or sql.lower().startswith("explain"):
+                keyaction = sql[:4].lower()
+                # 如果是 select/with/explain/show 开头的命令，需要获取详细数据
+                readaction = {'sele', 'with', 'expl', 'show'}
+                if keyaction in readaction:
                     # 查询语句
                     rows = cursor.fetchall()
                     if rows:
