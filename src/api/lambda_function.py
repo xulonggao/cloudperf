@@ -25,7 +25,7 @@ def webapi_statistics(requests):
         elif querykey == 'status':
             query = 'all-country,all-city,all-asn,cityid-all,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue'
         elif querykey == 'clients':
-            query = 'ping-clients,data-clients'
+            query = 'ping-clients,data-clients,speed-ping-get,speed-ping-set,speed-data-get,speed-data-set'
     data = data_layer.query_statistics_data(query)
     return {
         'statusCode': 200,
@@ -405,6 +405,7 @@ def fping_logic(requests):
                 # print(ips)
                 if len(ips) > 0:
                     data_layer.update_pingable_ip(jobid, ips)
+                    data_layer.update_speed_status(jobtype, len(ips), False)
             elif jobtype == 'data':
                 #print(f"datajob: {jobid} status: {obj['status']}")
                 #print(obj['stdout'])
@@ -444,6 +445,8 @@ def fping_logic(requests):
                     }
                     data_layer.update_statistics_data(datas)
                     data_layer.delete_oldest_statistics_data(city_id, jobid)
+                    data_layer.update_speed_status(jobtype, len(samples), False)
+
     if requests['useragent'].startswith('fping-pingable'):
         ttl = data_layer.update_client_status(requests['srcip'], 'ping')
         # need pause
@@ -470,6 +473,7 @@ def fping_logic(requests):
             if len(ret["job"]) > 0:
                 ret["next"] = 'ping'
                 ret["interval"] = 1
+                data_layer.update_speed_status('ping', len(ret["job"]), True)
     else:
         ttl = data_layer.update_client_status(requests['srcip'], 'data')
         # need pause
@@ -492,6 +496,7 @@ def fping_logic(requests):
             if len(ret['job']) > 0:
                 ret["next"] = "data"
                 ret["interval"] = 1
+                data_layer.update_speed_status('data', len(ret["job"]), True)
     return {
         'statusCode': 200,
         'result': ret

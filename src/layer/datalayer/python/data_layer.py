@@ -11,6 +11,7 @@ from onlineip_tracker import OnlineIPTracker
 from typing import List, Dict, Any
 from botocore.exceptions import ClientError
 from password_validator import EnhancedPasswordValidator
+from speed_counter import SpeedCounter
 
 import pymysql
 from pymysql.constants import FIELD_TYPE
@@ -185,7 +186,6 @@ def cache_get(key:str):
 def cache_set(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
     try:
         r = redis.StrictRedis(connection_pool=redis_pool)
-        print('cache set:', key, ttl, value)
         return r.setex(key, ttl, json.dumps(value))
     except Exception as e:
         print('cache set failed.', repr(e) , key, ttl, value)
@@ -194,7 +194,6 @@ def cache_set(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
 def cache_delete(key:str):
     try:
         r = redis.StrictRedis(connection_pool=redis_pool)
-        print('cache delete:', key)
         return r.delete(key)
     except Exception as e:
         print('cache delete failed.', repr(e), key)
@@ -497,7 +496,7 @@ def friendly_cityasn(city):
 # 已知cityid数量，可ping的cityid数量，有数据的cityid pair数量
 def query_statistics_data(datas = ''):
     if datas == '':
-        datas = 'all-country,all-city,all-asn,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue,cityid-all,cityid-ping,cityid-pair,ping-clients,data-clients'
+        datas = 'all-country,all-city,all-asn,ping-stable,ping-new,ping-loss,cidr-ready,cidr-outdated,cidr-queue,cityid-all,cityid-ping,cityid-pair,ping-clients,data-clients,speed-ping-get,speed-ping-set,speed-data-get,speed-data-set'
     supports = {
         'all-country':'select count(1) from country',
         'all-city':'select count(1) from (select country_code,name from city group by country_code,name) as a',
@@ -508,7 +507,6 @@ def query_statistics_data(datas = ''):
 
         'cidr-ready':'select count(1) from iprange where lastcheck_time >= date_sub(now(), interval 14 day)',
         'cidr-outdated':'select count(1) from iprange where lastcheck_time < date_sub(now(), interval 14 day)',
-        'cidr-queue':'',
 
         'cityid-all':'select count(1) from city',
         'cityid-ping':'select count(distinct city_id) from pingable where lastresult>' + settings.DELETE_PINGABLE_IP,
@@ -519,7 +517,10 @@ def query_statistics_data(datas = ''):
     for data in datas.split(','):
         if data == 'cidr-queue':
             outs[data] = cache_listlen(settings.CACHEKEY_PINGABLE)
-        elif data == 'ping-clients' or data == 'data-clients':
+        elif data in {'speed-ping-get','speed-ping-set','speed-data-get','speed-data-set'}:
+            speed_counter = SpeedCounter(redis_pool, settings.CACHEKEY_RECENT_TASKS + data)
+            outs[data] = speed_counter.get_count()
+        elif data in {'ping-clients','data-clients'}:
             ping_tracker = OnlineIPTracker(redis_pool, settings.CACHEKEY_ONLINE_SERVERS + data[:4])
             ping_clients = []
             for ip, timestamp in ping_tracker.get_online_ips():
@@ -734,6 +735,12 @@ def get_pingjob_by_cityid(src_city_id:int):
         'city_id': return_city_id,
         'ips': [x[0] for x in iplists]
     }
+
+def update_speed_status(job:str, count:int, isread:bool):
+    # 'speed-ping-get','speed-ping-set','speed-data-get','speed-data-set'
+    key = 'speed-' + job + ('-get' if isread else '-set')
+    speed_counter = SpeedCounter(redis_pool, settings.CACHEKEY_RECENT_TASKS + key)
+    speed_counter.update_count(count)
 
 # agent=ping or data, return str(int) for sleep intval, pause the system
 def update_client_status(ip:str, agent:str):

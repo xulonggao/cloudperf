@@ -13,6 +13,8 @@ CACHEKEY_PINGABLE = 'ping'
 CACHEKEY_CITYJOB = 'job'
 # 用于报告在线客户端
 CACHEKEY_ONLINE_SERVERS = 'online'
+# 用于报告最近处理任务数
+CACHEKEY_RECENT_TASKS = 'task'
 # 用于登录用户授权
 CACHEKEY_USERAUTH = 'user'
 # 用于暂停客户端任务，value为重试时间，如3600秒
