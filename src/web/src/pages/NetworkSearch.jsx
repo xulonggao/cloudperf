@@ -705,7 +705,7 @@ export default function NetworkSearch() {
                                                         ...d,
                                                         dist: calculateDistance(d.sLa, d.sLo, d.dLa, d.dLo)
                                                     }))}
-                                                fill={`hsl(${(index * 360) / 20}, 70%, 50%)`}
+                                                fill={`hsl(${index * 30}, 70%, 50%)`}
                                             />
                                         ))}
                                     </ScatterChart>
@@ -948,7 +948,7 @@ export default function NetworkSearch() {
                                 <Typography variant="h6" gutterBottom>
                                     Location Distribution
                                 </Typography>
-                                <Box sx={{ height: 400 }}>
+                                <Box sx={{ height: 700 }}>
                                     <MapContainer
                                         bounds={getBounds()}
                                         style={{ height: '100%', width: '100%' }}
