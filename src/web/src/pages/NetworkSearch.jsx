@@ -114,6 +114,9 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 export default function NetworkSearch() {
     // State for latency metric selection
     const [selectedMetric, setSelectedMetric] = useState('p70');
+    // State for tracking hover on scatter points
+    const [hoveredDistanceSeries, setHoveredDistanceSeries] = useState(null);
+    const [hoveredTimeSeries, setHoveredTimeSeries] = useState(null);
 
     // State for source selection
     const [citySets, setCitySets] = useState([]);
@@ -694,20 +697,34 @@ export default function NetworkSearch() {
                                             }}
                                             iconSize={10}
                                             iconType="circle"
+                                            onClick={(dataKey) => {
+                                                // Toggle hoveredDistanceSeries: if it's already set to this series, clear it; otherwise set it to this series
+                                                setHoveredDistanceSeries(hoveredDistanceSeries === dataKey.value ? null : dataKey.value);
+                                            }}
                                         />
-                                        {Array.from(new Set(performanceData.latencyData.map(d => d.sC))).map((sC, index) => (
-                                            <Scatter
-                                                key={sC}
-                                                name={sC}
-                                                data={performanceData.latencyData
-                                                    .filter(d => d.sC === sC)
-                                                    .map(d => ({
-                                                        ...d,
-                                                        dist: calculateDistance(d.sLa, d.sLo, d.dLa, d.dLo)
-                                                    }))}
-                                                fill={`hsl(${index * 30}, 70%, 50%)`}
-                                            />
-                                        ))}
+                                        {Array.from(new Set(performanceData.latencyData.map(d => d.sC))).map((sC, index) => {
+                                            // Create a unique identifier for each data point
+                                            const dataWithIds = performanceData.latencyData
+                                                .filter(d => d.sC === sC)
+                                                .map((d, i) => ({
+                                                    ...d,
+                                                    dist: calculateDistance(d.sLa, d.sLo, d.dLa, d.dLo),
+                                                    pointId: `${sC}-${i}` // Unique ID for each point
+                                                }));
+
+                                            return (
+                                                <Scatter
+                                                    key={sC}
+                                                    name={sC}
+                                                    data={dataWithIds}
+                                                    fill={`hsl(${index * 30}, 70%, 50%)`}
+                                                    opacity={
+                                                        (hoveredDistanceSeries !== null && hoveredDistanceSeries !== sC) ? 0.2 : 1
+                                                    }
+                                                >
+                                                </Scatter>
+                                            );
+                                        })}
                                     </ScatterChart>
                                 </ResponsiveContainer>
                             </Paper>
@@ -797,24 +814,37 @@ export default function NetworkSearch() {
                                             }}
                                             iconSize={10}
                                             iconType="circle"
+                                            onClick={(dataKey) => {
+                                                // Toggle hoveredTimeSeries: if it's already set to this series, clear it; otherwise set it to this series
+                                                setHoveredTimeSeries(hoveredTimeSeries === dataKey.value ? null : dataKey.value);
+                                            }}
                                         />
                                         <Scatter
                                             name="Insufficient"
                                             data={performanceData.rawData
                                                 .filter(d => d.sm < 200)}
                                             fill="#ff7300"
+                                            opacity={
+                                                (hoveredTimeSeries !== null && hoveredTimeSeries !== "Insufficient") ? 0.2 : 1
+                                            }
                                         />
                                         <Scatter
                                             name="Moderate"
                                             data={performanceData.rawData
                                                 .filter(d => d.sm >= 200 && d.sm < 600)}
                                             fill="#8884d8"
+                                            opacity={
+                                                (hoveredTimeSeries !== null && hoveredTimeSeries !== "Moderate") ? 0.2 : 1
+                                            }
                                         />
                                         <Scatter
                                             name="Sufficient"
                                             data={performanceData.rawData
                                                 .filter(d => d.sm >= 600)}
                                             fill="#82ca9d"
+                                            opacity={
+                                                (hoveredTimeSeries !== null && hoveredTimeSeries !== "Sufficient") ? 0.2 : 1
+                                            }
                                         />
                                     </ScatterChart>
                                 </ResponsiveContainer>
