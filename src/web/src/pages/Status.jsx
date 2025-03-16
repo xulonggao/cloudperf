@@ -9,10 +9,10 @@ import ErrorIcon from '@mui/icons-material/Error';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import QueueIcon from '@mui/icons-material/Queue';
 
-const ClientTable = ({ title, clients }) => (
+const ClientTable = ({ title, clients, speedr, speedw }) => (
     <TableContainer component={Paper} sx={{ mt: 3 }}>
         <Typography variant="h6" sx={{ p: 2 }}>
-            {title} ({clients?.length || 0})
+            {title} ({clients?.length || 0}) Last hour {speedr} r/ {speedw} w
         </Typography>
         <Table>
             <TableHead>
@@ -67,7 +67,11 @@ export default function Status() {
         'ping-queue': 0,
         'stat-pair': 0,
         'ping-clients': [],
-        'data-clients': []
+        'data-clients': [],
+        'speed-data-get': 0,
+        'speed-data-set': 0,
+        'speed-ping-get': 0,
+        'speed-ping-set': 0,
     });
 
     // Function to fetch count statistics
@@ -162,9 +166,9 @@ export default function Status() {
         };
 
         // Schedule initial timers
-        scheduleNextCountStatsFetch();
-        scheduleNextStatusStatsFetch();
-        scheduleNextClientStatsFetch();
+        //scheduleNextCountStatsFetch();
+        //scheduleNextStatusStatsFetch();
+        //scheduleNextClientStatsFetch();
 
         // Cleanup timers and event listeners on component unmount
         return () => {
@@ -287,10 +291,10 @@ export default function Status() {
             <Box sx={{ p: [0, 3, 0, 3] }}>
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
-                        <ClientTable title="Ping Clients" clients={stats['ping-clients']} />
+                        <ClientTable title="Ping Clients" clients={stats['ping-clients']} speedr={stats['speed-ping-get']} speedw={stats['speed-ping-set']} />
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        <ClientTable title="Data Clients" clients={stats['data-clients']} />
+                        <ClientTable title="Data Clients" clients={stats['data-clients']} speedr={stats['speed-data-get']} speedw={stats['speed-data-set']} />
                     </Grid>
                 </Grid>
             </Box>
