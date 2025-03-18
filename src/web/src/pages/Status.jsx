@@ -12,7 +12,7 @@ import QueueIcon from '@mui/icons-material/Queue';
 const ClientTable = ({ title, clients, speedr, speedw }) => (
     <TableContainer component={Paper} sx={{ mt: 3 }}>
         <Typography variant="h6" sx={{ p: 2 }}>
-            {title} ({clients?.length || 0}) Last hour {speedr} r/ {speedw} w
+            {title} ({clients?.length || 0}) Last hour r/w {speedr}/{speedw}
         </Typography>
         <Table>
             <TableHead>

@@ -3,7 +3,6 @@ import os
 import io
 import sys
 import zipfile
-from zipfile import ZipFile
 import subprocess
 import tempfile
 import boto3
@@ -80,7 +79,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 def mysql_dump_table(s3_bucket, s3_key, dump_tables = []):
     zip_buffer = io.BytesIO()
-    with ZipFile(zip_buffer, 'w') as zip_file:
+    with zipfile.ZipFile(zip_buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zip_file:
         for table in dump_tables:
             with zip_file.open(table + '.sql', 'w') as zip_entry:
                 mysql_dump_table_to_zipfile(table, zip_entry)
