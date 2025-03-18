@@ -17,12 +17,10 @@ class SpeedCounter:
     def update_count(self, count:int):
         key = self.key + str(int(time.time() / self.accuracy) % self.bucket)
         try:
-            # 以下逻辑可以避免每次incr都刷新ttl
-            # 如果key不存在，直接设置并设置过期时间和本次增加值
-            ret = self.redis.set(key, count, ex=self.expire, nx=True)
-            if not ret:
-                # 如果key已存在，进行count增加
-                self.redis.incr(key, count)
+            ret = self.redis.incr(key, count)
+            if ret == count:
+                # 如果key不存在，设置过期时间
+                self.redis.expire(key, self.expire)
         except Exception as e:
             print('update_count failed.', repr(e), key)
 
