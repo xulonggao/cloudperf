@@ -237,14 +237,14 @@ cdk deploy
 ├── lib
 │   └── cloudperf-stack.ts          # 整个系统的 CDK 部署代码 (VPC, Lambda, RDS 等)
 ├── script                          # 管理维护常用脚本
+│   ├── admin_exec.sh               # 多种管理功能脚本
 │   ├── build_web.sh                # 发布网页修改
-│   ├── create_admin_user.sh        # 创建管理员账号
 │   ├── deploy_detector.sh          # 部署采集客户端
-│   ├── exec_sql.sh                 # 执行数据库SQL
 │   ├── local_test.sh               # 本地测试环境
 │   ├── remove_detector.sh          # 卸载采集客户端
 │   ├── terminate_aws_detector.sh   # 终止采集ec2实例
-│   └── update_detector.sh          # 更新采集客户端
+│   ├── update_detector.sh          # 更新采集客户端
+│   └── upload_sql.sh               # 上传导入数据的sql
 └── src                             # 源代码
     ├── admin
     │   └── lambda_function.py      # 管理使用的工具，无对外接口可以直接调用
