@@ -186,6 +186,8 @@ def cache_get(key:str):
 def cache_set(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
     try:
         r = redis.StrictRedis(connection_pool=redis_pool)
+        if ttl == 0:
+            return r.set(key, json.dumps(value))
         return r.setex(key, ttl, json.dumps(value))
     except Exception as e:
         print('cache set failed.', repr(e) , key, ttl, value)
@@ -764,55 +766,68 @@ def np_percentile(sorted_data, p, accurate = False):
     fraction = rank - index_floor
     return sorted_data[index_floor] * (1 - fraction) + sorted_data[index_ceil] * fraction
 
-def get_cookie(cookies:str, key:str):
+def get_cookie(cookies:str, key:str, default_val=''):
     if cookies == '':
-        return False
+        return default_val
     cookies = ' ' + cookies
     start = cookies.find(f" {key}=")
     if start == -1:
         start = cookies.find(f";{key}=")
         if start == -1:
-            return False
+            return default_val
     start += len(key) + 2
     end = cookies.find(";", start)
     return cookies[start:] if end == -1 else cookies[start:end]
 
-def validate_user_cookies(auth:int, cookies:str):
+def validate_user_token(auth:int, token:str):
     if auth == settings.AUTH_NOTNEED:
         return True
-    token = get_cookie(cookies, 'token')
-    if token == False:
+    if not token:
+        return False
+    if not token.isalnum():
         return False
     val = cache_get(settings.CACHEKEY_USERAUTH + myhash(token))
     if val != None and (auth & val["auth"]) == auth:
         return True
     return False
 
-def get_user_info_by_cookie(cookies:str):
-    token = get_cookie(cookies, 'token')
-    if token == False:
+def get_user_info_by_token(token:str):
+    if not token:
+        return None
+    if not token.isalnum():
         return None
     return cache_get(settings.CACHEKEY_USERAUTH + myhash(token))
 
-def validate_user(user:str, password:str):
+# if ssouser exist, user = ssouser@user
+def validate_user(user:str, ssouser:str, password:str, expire:int = settings.CACHE_LONG_TTL):
     if not user.isalnum():
+        return None
+    if ssouser and not ssouser.isalnum():
         return None
     ret = mysql_select('select password,auth from user where name=%s',(user,))
     if ret == None or len(ret) == 0:
         return None
     if ret[0]['password'] == myhash(myhash(password)+user+'myuserencrpt'):
+        if ssouser:
+            user = ssouser + '@' + user
         key = myhash(str(time.time()) + user)
-        cache_set(settings.CACHEKEY_USERAUTH + myhash(key), {"user":user, "auth":ret[0]['auth']}, settings.CACHE_LONG_TTL)
+        cache_set(settings.CACHEKEY_USERAUTH + myhash(key), {"user":user, "auth":ret[0]['auth']}, expire)
         return {
             "token": key,
             "user": user,
             "auth": ret[0]['auth'],
-            "expire": settings.CACHE_LONG_TTL
+            "expire": expire
         }
     return None
 
 # is_valid, errors, stats = create_user()
 def create_user(user:str, password:str, auth:int=settings.AUTH_BASEUSER):
+    # sso user can not change passwd
+    if '@' in user:
+        return {
+            'statusCode': 403,
+            'result': "can not modify sso user!"
+        }
     if not user.isalnum():
         return {
             'statusCode': 403,

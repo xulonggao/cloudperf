@@ -49,9 +49,12 @@ export default function ASNSearch() {
     const [isSearching, setIsSearching] = useState(false);
 
     const hasPermission = useMemo(() => {
-        const cookies = document.cookie.split(';');
-        const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth='));
-        const auth = parseInt(authCookie ? authCookie.split('=')[1] : '0');
+        let auth = 0;
+        const tokenCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith('cp_token='));
+        if (tokenCookie) {
+            const tokenData = tokenCookie.split('=')[1].split('|');
+            auth = parseInt(tokenData[2]);
+        }
         return (auth & 4) == 4;
     }, []);
 

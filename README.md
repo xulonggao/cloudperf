@@ -260,8 +260,8 @@ cdk deploy
     │   ├── build-layer.sh          # 创建pythonlib-layer
     │   └── pythonlib-layer-{ARCH}.zip  # python 类库层（python里的依赖库，如：PyMysql，redis，requests）
     └── web
-       ├── lambda/app/public       # 网站静态发布页
-       └── src                     # 网站代码
+        ├── lambda/app/public       # 网站静态发布页
+        └── src                     # 网站代码
 ```
 
 ### web 前端构建

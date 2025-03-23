@@ -25,7 +25,7 @@ const theme = createTheme({
 
 // Check if user is authenticated
 const isAuthenticated = () => {
-  return document.cookie.split('; ').some(row => row.startsWith('token='));
+  return document.cookie.split('; ').some(row => row.startsWith('cp_token='));
 };
 
 // Protected route wrapper

@@ -98,60 +98,32 @@ export default function Layout() {
     const location = useLocation();
 
     useEffect(() => {
-        // Get username and auth from cookies
-        const userCookie = document.cookie.split('; ').find(row => row.startsWith('user='));
-        const authCookie = document.cookie.split('; ').find(row => row.startsWith('auth='));
-
-        if (userCookie) {
-            setUsername(userCookie.split('=')[1]);
-        }
-
-        if (authCookie) {
-            setAuthLevel(parseInt(authCookie.split('=')[1]) || 0);
-        }
-
         // Skip token check for login page
         if (location.pathname === '/login') {
             return;
         }
 
         // Check for token existence and validity
-        const tokenCookie = document.cookie.split('; ').find(row => row.startsWith('token='));
+        const tokenCookie = document.cookie.split('; ').find(row => row.startsWith('cp_token='));
         if (!tokenCookie) {
             navigate('/login');
             return;
         }
 
         // Get token from cookie
-        const token = tokenCookie.split('=')[1];
-        if (!token) {
-            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        const tokenData = tokenCookie.split('=')[1].split('|');
+        if (!tokenData) {
+            document.cookie = 'cp_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
             navigate('/login');
             return;
         }
+        setUsername(tokenData[1]);
+        setAuthLevel(parseInt(tokenData[2]));
 
-        // Fetch status every 60 seconds
-        const fetchStatus = async () => {
-            try {
-                const response = await fetch('/api/status');
-                if (response.ok) {
-                    const data = await response.json();
-                    setStatus(data);
-                }
-            } catch (error) {
-                console.error('Error fetching status:', error);
-            }
-        };
-
-        // fetchStatus();
-        // const interval = setInterval(fetchStatus, 60000);
-        // return () => clearInterval(interval);
     }, [location, navigate]);
 
     const handleLogout = () => {
-        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-        document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-        document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        document.cookie = 'cp_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
         navigate('/login');
     };
 
@@ -192,33 +164,22 @@ export default function Layout() {
                             CloudPerf Dashboard
                         </Typography>
                     </Box>
-                    {status && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flex: 1, justifyContent: 'center' }}>
-                            <Typography variant="body2">
-                                Active Nodes: {status.activeNodes}
-                            </Typography>
-                            <Typography variant="body2">
-                                Avg Latency: {status.avgLatency}ms
-                            </Typography>
-                            <Typography variant="body2">
-                                Uptime: {status.uptime}%
-                            </Typography>
-                        </Box>
-                    )}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Typography
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => setDialogOpen(true)}
+                            sx={{ cursor: username && username.includes('@') ? 'default' : 'pointer' }}
+                            onClick={() => username && !username.includes('@') && setDialogOpen(true)}
                         >
                             {username}
                         </Typography>
-                        <Button
-                            color="inherit"
-                            onClick={handleLogout}
-                            startIcon={<LogoutIcon />}
-                        >
-                            Logout
-                        </Button>
+                        {username && !username.includes('@') && (
+                            <Button
+                                color="inherit"
+                                onClick={handleLogout}
+                                startIcon={<LogoutIcon />}
+                            >
+                                Logout
+                            </Button>
+                        )}
                     </Box>
                 </Toolbar>
             </AppBar>

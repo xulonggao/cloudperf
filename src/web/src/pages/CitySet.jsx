@@ -34,12 +34,13 @@ export default function CitySet() {
     const [error, setError] = useState('');
 
     const hasEditPermission = useMemo(() => {
-        const authCookie = document.cookie
-            .split('; ')
-            .find(row => row.startsWith('auth='));
-        if (!authCookie) return false;
-        const authValue = parseInt(authCookie.split('=')[1], 10);
-        return (authValue & 4) == 4;
+        let auth = 0;
+        const tokenCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith('cp_token='));
+        if (tokenCookie) {
+            const tokenData = tokenCookie.split('=')[1].split('|');
+            auth = parseInt(tokenData[2]);
+        }
+        return (auth & 4) == 4;
     }, []);
 
     const loadCitySets = async () => {

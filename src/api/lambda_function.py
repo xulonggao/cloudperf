@@ -3,6 +3,7 @@ import settings
 import data_layer
 import ipaddress
 from urllib.parse import unquote_plus
+from datetime import datetime, timedelta
 from itertools import chain
 
 def webapi_status(requests):
@@ -181,7 +182,9 @@ def webapi_install(requests):
         content = content.replace('-fping-job', '-' + requests['query']['type'])
     return {
         'statusCode': 200,
-        'content-type': 'text/plain; charset=utf-8',
+        'headers': {
+            'Content-Type': 'text/plain; charset=utf-8',
+        },
         'result': content
     }
 
@@ -193,16 +196,39 @@ def webapi_uninstall(requests):
         content = content.replace('-fping-job', '-' + requests['query']['type'])
     return {
         'statusCode': 200,
-        'content-type': 'text/plain; charset=utf-8',
+        'headers': {
+            'Content-Type': 'text/plain; charset=utf-8',
+        },
         'result': content
     }
 
 # {username: "admin", password: "admin"}
+# {username: "admin", domain: "sso", password: "admin", url: "redirecturl"}
 def webapi_login(requests):
-    data = json.loads(requests['body'])
+    if requests['method'] == 'GET':
+        data = requests['query']
+        for item in data:
+            data[item] = unquote_plus(data[item])
+    else:
+        data = json.loads(requests['body'])
     if 'username' in data and 'password' in data:
-        ret = data_layer.validate_user(data['username'], data['password'])
+        if 'domain' in data:
+            ret = data_layer.validate_user(data['domain'], data['username'], data['password'])
+        else:
+            ret = data_layer.validate_user(data['username'], None, data['password'])
         if ret != None:
+            if 'url' in data:
+                expiration = datetime.utcnow() + timedelta(seconds=ret['expire'])
+                expstr = expiration.strftime("%a, %d %b %Y %H:%M:%S GMT")
+                return {
+                    'statusCode': 307,
+                    'headers': {
+                        'Content-Type': 'text/plain; charset=utf-8',
+                        'Set-Cookie': f"cp_token={ret['token']}|{ret['user']}|{ret['auth']}; Path=/; Expires={expstr}",
+                        'Location': data['url']
+                    },
+                    'result': 'login successs, redirecting ...'
+                }
             return {
                 'statusCode': 200,
                 'result': ret
@@ -218,7 +244,8 @@ def webapi_updateuser(requests):
 
 def webapi_changepasswd(requests):
     obj = json.loads(requests['body'])
-    userobj = data_layer.get_user_info_by_cookie(requests['cookie'])
+    cp_token = data_layer.get_cookie(requests['cookie'], 'cp_token').split('|')
+    userobj = data_layer.get_user_info_by_token(cp_token[0])
     if userobj:
         return data_layer.create_user(userobj['user'], obj['password'], userobj['auth'])
     return {
@@ -279,8 +306,10 @@ def webapi_cityset(requests):
             {**item, 'cityIds': item['cityIds'].split(',') if item.get('cityIds') else []}
             for item in ret
         ]
-    elif not data_layer.validate_user_cookies(settings.AUTH_ADMIN, requests['cookie']):
-        return {'statusCode':403, 'result':'forbidden'}
+    else:
+        cp_token = data_layer.get_cookie(requests['cookie'], 'cp_token').split('|')
+        if not data_layer.validate_user_token(settings.AUTH_ADMIN, cp_token[0]):
+            return {'statusCode':403, 'result':'forbidden'}
     if requests['method'] == 'POST':
         data = json.loads(requests['body'])
         ret = data_layer.add_cityset(data['name'], map(str, data['cityIds']))
@@ -581,19 +610,18 @@ def lambda_handler(event, context):
     else:
         print(requests)
         route = apimapping[requests['path']]
-        if not data_layer.validate_user_cookies(route[1], requests['cookie']):
+        cp_token = data_layer.get_cookie(requests['cookie'], 'cp_token').split('|')
+        if not data_layer.validate_user_token(route[1], cp_token[0]):
             ret = {'statusCode':403, 'result':'forbidden'}
         else:
             ret = route[0](requests)
     #ret['result']['debug'] = event;
     #ret['result']['requests'] = requests;
-    content_type = 'application/json' if 'content-type' not in ret else ret['content-type']
-    body = json.dumps(ret['result']) if content_type == 'application/json' else ret['result']
+    headers = ret['headers'] if 'headers' in ret else {"Content-Type": "application/json"}
+    body = json.dumps(ret['result']) if headers['Content-Type'] == 'application/json' else ret['result']
     return {
         'statusCode': ret['statusCode'],
-        "headers": {
-            "Content-Type": content_type,
-        },
+        "headers": headers,
         'body': body
     }
 
