@@ -212,10 +212,11 @@ def webapi_login(requests):
     else:
         data = json.loads(requests['body'])
     if 'username' in data and 'password' in data:
+        expire = int(data['expire']) if 'expire' in data else settings.CACHE_LONG_TTL
         if 'domain' in data:
-            ret = data_layer.validate_user(data['domain'], data['username'], data['password'])
+            ret = data_layer.validate_user(data['domain'], data['username'], data['password'], expire)
         else:
-            ret = data_layer.validate_user(data['username'], None, data['password'])
+            ret = data_layer.validate_user(data['username'], None, data['password'], expire)
         if ret != None:
             if 'url' in data:
                 expiration = datetime.utcnow() + timedelta(seconds=ret['expire'])
