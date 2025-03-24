@@ -224,6 +224,7 @@ def webapi_login(requests):
                     'statusCode': 307,
                     'headers': {
                         'Content-Type': 'text/plain; charset=utf-8',
+                        'Cache-Control': 'no-cache',
                         'Set-Cookie': f"cp_token={ret['token']}|{ret['user']}|{ret['auth']}; Path=/; Expires={expstr}",
                         'Location': data['url']
                     },
