@@ -201,6 +201,14 @@ def cache_delete(key:str):
         print('cache delete failed.', repr(e), key)
         return None
 
+def cache_zadd(key:str, value):
+    try:
+        r = redis.StrictRedis(connection_pool=redis_pool)
+        return r.zadd(key, value)
+    except Exception as e:
+        print('cache zadd failed.', repr(e), key, value)
+        return None
+
 def cache_push(key:str, value, ttl:int = settings.CACHE_BASE_TTL):
     try:
         r = redis.StrictRedis(connection_pool=redis_pool)

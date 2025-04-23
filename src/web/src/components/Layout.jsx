@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { styled } from '@mui/material/styles';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -10,6 +10,8 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -29,6 +31,7 @@ import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import LogoutIcon from '@mui/icons-material/Logout';
 import BuildIcon from '@mui/icons-material/Build';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import { ThemeContext } from '../App';
 
 const drawerWidth = 240;
 
@@ -36,6 +39,8 @@ const AppBar = styled(MuiAppBar, {
     shouldForwardProp: (prop) => prop !== 'open',
 })(({ theme, open }) => ({
     zIndex: theme.zIndex.drawer + 1,
+    height: '40px',
+    minHeight: '40px',
     transition: theme.transitions.create(['width', 'margin'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen,
@@ -94,8 +99,13 @@ export default function Layout() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [dialogError, setDialogError] = useState('');
     const [username, setUsername] = useState('');
+    const { currentTheme, setCurrentTheme } = useContext(ThemeContext);
     const navigate = useNavigate();
     const location = useLocation();
+
+    const handleThemeChange = (event) => {
+        setCurrentTheme(event.target.value);
+    };
 
     useEffect(() => {
         // Skip token check for login page
@@ -140,6 +150,9 @@ export default function Layout() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        minHeight: '40px !important',
+                        height: '40px',
+                        padding: '0 24px !important'
                     }}
                 >
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -157,29 +170,64 @@ export default function Layout() {
                         </IconButton>
                         <Typography
                             component="h1"
-                            variant="h6"
-                            color="inherit"
+                            variant="body1"
+                            sx={{
+                                color: 'white',
+                                fontSize: '1rem'
+                            }}
                             noWrap
                         >
                             CloudPerf Dashboard
                         </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography
-                            sx={{ cursor: username && username.includes('@') ? 'default' : 'pointer' }}
-                            onClick={() => username && !username.includes('@') && setDialogOpen(true)}
-                        >
-                            {username}
-                        </Typography>
-                        {username && !username.includes('@') && (
-                            <Button
-                                color="inherit"
-                                onClick={handleLogout}
-                                startIcon={<LogoutIcon />}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <Typography
+                                sx={{ cursor: username && username.includes('@') ? 'default' : 'pointer', color: 'white' }}
+                                onClick={() => username && !username.includes('@') && setDialogOpen(true)}
                             >
-                                Logout
-                            </Button>
-                        )}
+                                {username}
+                            </Typography>
+                            {username && !username.includes('@') && (
+                                <Button
+                                    onClick={handleLogout}
+                                    startIcon={<LogoutIcon />}
+                                    size="small"
+                                    sx={{
+                                        padding: '2px 8px',
+                                        minWidth: 'auto',
+                                        color: 'white',
+                                        '&:hover': {
+                                            borderColor: 'rgba(255, 255, 255, 0.87)',
+                                        },
+                                    }}
+                                >
+                                </Button>
+                            )}
+                        </Box>
+                        <Select
+                            value={currentTheme}
+                            onChange={handleThemeChange}
+                            size="small"
+                            sx={{
+                                color: 'white',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.87)' },
+                                '.MuiSvgIcon-root': { color: 'white' }
+                            }}
+                        >
+                            <MenuItem value="black">
+                                <Box sx={{ width: 20, height: 20, bgcolor: '#212121', borderRadius: 1, border: '2px solid white' }} />
+                            </MenuItem>
+                            <MenuItem value="blue">
+                                <Box sx={{ width: 20, height: 20, bgcolor: '#1976d2', borderRadius: 1, border: '2px solid white' }} />
+                            </MenuItem>
+                            <MenuItem value="orange">
+                                <Box sx={{ width: 20, height: 20, bgcolor: '#ff9800', borderRadius: 1, border: '2px solid white' }} />
+                            </MenuItem>
+                            <MenuItem value="green">
+                                <Box sx={{ width: 20, height: 20, bgcolor: '#4caf50', borderRadius: 1, border: '2px solid white' }} />
+                            </MenuItem>
+                        </Select>
                     </Box>
                 </Toolbar>
             </AppBar>
@@ -190,6 +238,8 @@ export default function Layout() {
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         px: [1],
+                        minHeight: '40px !important',
+                        height: '40px'
                     }}
                 >
                     <IconButton onClick={toggleDrawer}>
