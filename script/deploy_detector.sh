@@ -15,7 +15,10 @@
 #  aws cli & configure
 #  curl
 
-alb_host=$(aws cloudformation describe-stacks --stack-name CloudperfStack --query 'Stacks[0].Outputs[?OutputKey==`albHost`].OutputValue' --output text --region us-east-1)
+# cdk 部署的区域，如果使用了 export CDK_DEFAULT_REGION 进行指定，请确保这个指向是正确的
+DEPLOY_REGION="${CDK_DEFAULT_REGION:-us-east-1}"
+
+alb_host=$(aws cloudformation describe-stacks --stack-name CloudperfStack --query 'Stacks[0].Outputs[?OutputKey==`albHost`].OutputValue' --output text --region ${DEPLOY_REGION})
 if [ "${alb_host}"  == "" ]; then
     echo "can not get alb host from CloudperfStack"
     exit 1
