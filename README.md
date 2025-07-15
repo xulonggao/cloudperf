@@ -28,6 +28,8 @@ CloudPerf是一个网络性能监控系统，提供跨多个地理位置的实�
 git clone https://github.com/tansoft/cloudperf.git
 cd cloudperf
 npm install
+# 可以通过 CDK_DEFAULT_REGION 指定在其他区域部署，默认部署在us-east-1，注意相关的脚本也会依赖这个环境变量
+# export CDK_DEFAULT_REGION=ap-northeast-1
 cdk bootstrap
 cdk synth
 ```
@@ -52,6 +54,8 @@ cdk deploy -c domainName=ping.customer.com -c hostedZoneId=Zxxxxx
 
 > 如果遇到版本不兼容情况，尝试重新安装依赖：
 > ```bash
+> npm install aws-cdk-lib constructs
+> # 或者重新安装依赖库
 > rm package-lock.json 
 > npm install -g aws-cdk@latest
 > npm install aws-cdk-lib@latest
