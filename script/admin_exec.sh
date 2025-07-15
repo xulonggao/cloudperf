@@ -16,7 +16,7 @@ fi
 
 ADMIN_LAMBDA=$(aws cloudformation describe-stacks --stack-name CloudperfStack --query 'Stacks[0].Outputs[?OutputKey==`adminLambda`].OutputValue' --output text --region ${DEPLOY_REGION})
 aws lambda invoke --function-name ${ADMIN_LAMBDA} --payload "{\"action\":\"${action}\",\"param\":\"${param}\"}" \
-    --region us-east-1 --cli-binary-format raw-in-base64-out --log-type Tail --output text \
+    --region ${DEPLOY_REGION} --cli-binary-format raw-in-base64-out --log-type Tail --output text \
     --query 'LogResult' /dev/stderr | base64 -d
 
 if [ "${action}" == "mysql_dump" ]; then
