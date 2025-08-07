@@ -14,3 +14,43 @@ data.local
 !src/web/
 # 取消忽略 src/web 下的所有 JS 文件
 !src/web/**/*.js
+
+# macOS系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE和编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 其他临时文件
+.kiro/
+*.tmp
+*.temp
+*.log
+
+# AWS相关
+.aws/
+*.pem
+*.key
+
+# 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 构建输出
+dist/
+build/
+*.tgz
+*.tar.gz
